@@ -3,10 +3,8 @@ name = "miri-the-world"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 env_logger = "0.9.0"
 log = "0.4.14"
 rustwide = "0.14.0"
-#rustwide = { path = "/home/ben/rustwide-0.14.0" }
+git2 = { version = "0.13.25", features = ["vendored-libgit2", "vendored-openssl"] }

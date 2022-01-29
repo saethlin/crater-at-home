@@ -1,23 +1,25 @@
-use rustwide::{Toolchain, WorkspaceBuilder};
+use rustwide::{logging, Toolchain, WorkspaceBuilder};
 use std::path::Path;
+use std::time::Duration;
 
 fn main() {
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "debug");
     }
-    env_logger::init();
+    rustwide::logging::init_with(env_logger::Logger::from_default_env());
+
     let workspace = WorkspaceBuilder::new(Path::new("/tmp"), "miri-the-world")
         .init()
         .unwrap();
 
-    let nightly = Toolchain::dist("nightly-2022-01-27");
+    workspace.purge_all_build_dirs().unwrap();
+    workspace.purge_all_caches().unwrap();
 
     for tc in workspace.installed_toolchains().unwrap() {
         tc.uninstall(&workspace).unwrap();
     }
 
-    workspace.purge_all_build_dirs().unwrap();
-    workspace.purge_all_caches().unwrap();
+    let nightly = Toolchain::dist("nightly-2022-01-27");
 
     nightly.install(&workspace).unwrap();
     nightly.add_component(&workspace, "rust-src").unwrap();
@@ -39,27 +41,46 @@ fn main() {
         .unwrap();
 
     let sandbox = rustwide::cmd::SandboxBuilder::new()
-        .memory_limit(Some(1024 * 1024 * 1024 * 32))
+        .memory_limit(Some(1024 * 1024 * 1024 * 63))
         .cpu_limit(None)
         .enable_networking(true);
 
     let mut build_dir = workspace.build_dir("miri-the-world");
 
-    let krate = rustwide::Crate::crates_io("ryu", "1.0.9");
+    std::fs::create_dir_all("success").unwrap();
+    std::fs::create_dir_all("failure").unwrap();
 
-    krate.fetch(&workspace).unwrap();
+    for line in include_str!("../top-crates").lines() {
+        let mut it = line.split(' ');
+        let krate_name = it.next().unwrap();
+        let ver = it.next().unwrap();
 
-    build_dir
-        .build(&nightly, &krate, sandbox)
-        .run(|build| {
-            build
-                .cargo()
-                .env("XARGO_CHECK", "/opt/rustwide/cargo-home/bin/xargo")
-                .env("XDG_CACHE_HOME", "/tmp/cache")
-                .env("MIRIFLAGS", "-Zmiri-disable-isolation")
-                .args(&["miri", "test", "--jobs=1", "--", "--test-threads=1"])
-                .run()?;
-            Ok(())
-        })
+        let krate = rustwide::Crate::crates_io(krate_name, ver);
+
+        krate.fetch(&workspace).unwrap();
+
+        let storage = logging::LogStorage::new(log::LevelFilter::Debug);
+
+        let res = logging::capture(&storage, || {
+            build_dir
+                .build(&nightly, &krate, sandbox.clone())
+                .run(|build| {
+                    build
+                        .cargo()
+                        .env("XARGO_CHECK", "/opt/rustwide/cargo-home/bin/xargo")
+                        .env("XDG_CACHE_HOME", "/tmp/cache")
+                        .env("MIRIFLAGS", "-Zmiri-disable-isolation")
+                        .args(&["miri", "test", "--jobs=1", "--", "--test-threads=1"])
+                        .timeout(Some(Duration::from_secs(60 * 15)))
+                        .run()?;
+                    Ok(())
+                })
+        });
+        let base = if res.is_ok() { "success" } else { "failure" };
+        std::fs::write(
+            format!("{}/{}-{}", base, krate_name, ver),
+            storage.to_string().as_bytes(),
+        )
         .unwrap();
+    }
 }
