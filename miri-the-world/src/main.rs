@@ -65,11 +65,13 @@ fn main() {
             build_dir
                 .build(&nightly, &krate, sandbox.clone())
                 .run(|build| {
+                    build.cargo().args(&["update"]).run()?;
                     build
                         .cargo()
                         .env("XARGO_CHECK", "/opt/rustwide/cargo-home/bin/xargo")
                         .env("XDG_CACHE_HOME", "/tmp/cache")
-                        .env("MIRIFLAGS", "-Zmiri-disable-isolation")
+                        .env("RUSTFLAGS", "-Zrandomize-layout")
+                        .env("MIRIFLAGS", "-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-check-number-validity -Zmiri-tag-raw-pointers")
                         .args(&["miri", "test", "--jobs=1", "--", "--test-threads=1"])
                         .timeout(Some(Duration::from_secs(60 * 15)))
                         .run()?;
