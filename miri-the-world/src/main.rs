@@ -65,7 +65,7 @@ fn main() {
             build_dir
                 .build(&nightly, &krate, sandbox.clone())
                 .run(|build| {
-                    build.cargo().args(&["update"]).run()?;
+                    build.cargo().args(&["update", "--offline"]).run()?;
                     build
                         .cargo()
                         .env("XARGO_CHECK", "/opt/rustwide/cargo-home/bin/xargo")
