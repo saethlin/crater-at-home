@@ -13,7 +13,7 @@
 | http-0.2.6 | `mem::uninitialized` | https://github.com/hyperium/http/pull/428 |
 | half-1.8.2 | `&mut -> & -> &mut` | |
 | crossbeam-epoch-0.9.5 | int-to-pointer cast | |
-| crossbeam-deque-0.7.4 | `crossbeam-epoch` | See above |
+| crossbeam-deque-0.7.4 | Type validation failed in `crossbeam-epoch` | |
 | prost-0.9.0 | `bytes` | See above |
 | pegtraph-0.6.0 | `as_mut_ptr` invalidation | |
 | rayon-1.9.1 | int-to-pointer cast | https://github.com/rayon-rs/rayon/pull/907 |
