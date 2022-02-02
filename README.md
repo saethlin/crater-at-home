@@ -12,3 +12,10 @@
 | arrayvec-0.7.2 | `as_mut_ptr` invalidation | ? |
 | http-0.2.6 | `mem::uninitialized` | https://github.com/hyperium/http/pull/428 |
 | half-1.8.2 | `&mut -> & -> &mut` | ? |
+| crossbeam-epoch-0.9.5 | int-to-pointer cast | |
+| crossbeam-deque-0.7.4 | `crossbeam-epoch` | See above |
+| prost-0.9.0 | `bytes` | See above |
+| pegtraph-0.6.0 | `as_mut_ptr` invalidation | |
+| rayon-1.9.1 | int-to-pointer cast | https://github.com/rayon-rs/rayon/pull/907 |
+| bumpalo-3.9.1  | Many int-to-pointer casts | |
+| lexical-core-0.8.1 | Please don't use this many macros to write unsafe code | |
