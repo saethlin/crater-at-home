@@ -62,3 +62,8 @@
 | markup5ever-0.10.1 | `string_cache` | |
 | prettytable-rs-0.8.0 | | |
 | alloc-stdlib-0.2.1 | Read of uninitialized memory in test | https://github.com/dropbox/rust-alloc-no-stdlib/issues/12 |
+| tokio-codec-0.1.2 | `bytes` 0.4.12 uses `mem::uninitialized` | |
+| wasm-timer-0.2.5 | | |
+| cortex-m-0.7.4 | Miri defect (access of a platform-specific address) | |
+| if_rust_version-1.0.0 | Uses `mem::uninitialized` in doctest as an example | |
+| malloc_buf-1.0.0 | Misaligned pointer, `*mut -> & -> &mut -> &mut` | |
