@@ -37,7 +37,7 @@
 | futures-timer-3.0.2 | int-to-pointer cast (should use `AtomicPtr`) | |
 | base-x-0.2.8 | | |
 | rusticata-macros-4.0.0 | Incorrect `assume_init()` | |
-| rusoto_credential-0.47.0 | `http`  | |
+| rusoto_credential-0.47.0 | `http` | |
 | buf_redux-0.8.4 | | |
 | tokio-io-0.1.13 | Miri defect | https://github.com/rust-lang/unsafe-code-guidelines/issues/72 |
 | ascii-1.0.0 | | |
@@ -67,3 +67,35 @@
 | cortex-m-0.7.4 | Miri defect (access of a platform-specific address) | |
 | if_rust_version-1.0.0 | Uses `mem::uninitialized` in doctest as an example | |
 | malloc_buf-1.0.0 | Misaligned pointer, `*mut -> & -> &mut -> &mut` | |
+| str-buf-2.0.4 | | |
+| opentelemetry-http-0.6.0 | `http` | |
+| android_logger-0.10.1 | Use of `mem::uninitialized` | |
+| selectors-0.23.0 | `cssparser` | |
+| sluice-0.5.5 | `futures-executor` | |
+| rkyv-0.7.31 | | |
+| ash-0.35.1+1.2.203 | `bindgen` generates deref of null pointers | |
+| libp2p-gossipsub-0.35.0 | `bytes` | |
+| perf-event-open-sys-1.0.1 | `bindgen` generates deref of null pointers | |
+| dlmalloc-0.2.3 | | |
+| field-offset-0.3.4 | | |
+| thin-slice-0.1.1 | | |
+| servo_arc-0.1.1 | 0x8 is not a valid pointer | |
+| wgpu-core-0.12.2 | | |
+| safe_arch-0.6.0 | `stdarch` | |
+| bytes-utils-0.1.1 | `bytes` | |
+| exit-future-0.2.0 | `futures-executor` | |
+| loom-0.5.4 | `generator` | |
+| generator-0.7.0 | Incorrect `assume_init()` | |
+| rend-0.3.6 | Attempt to construct invalid `char` | |
+| conv-0.3.3 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| hyperx-1.4.0 | `bytes` | |
+| kube-core-0.67.0 | `bytes` | |
+| renderdoc-sys-0.7.1 | `bindgen` generates deref of null pointers | |
+| rustsec-0.25.1 | `semver` | |
+| serde-json-core-0.4.0 | Use of `mem::uninitialized` | |
+| aws-smithy-http-0.36.0 | `bytes` | |
+| aws-sigv4-0.6.0 | `bytes` | |
+| aws-smithy-async-0.36.0 | `tokio` | |
+| aws-endpoint-0.6.0 | `bytes` | |
+| aws-sig-auth-0.6.0 | `bytes` | |
+| intervalier-0.4.0 | `futures-executor` | |
