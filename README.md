@@ -99,3 +99,36 @@
 | aws-endpoint-0.6.0 | `bytes` | |
 | aws-sig-auth-0.6.0 | `bytes` | |
 | intervalier-0.4.0 | `futures-executor` | |
+| pdqselect-0.1.1 | | |
+| rustler_sys-2.1.1 | Constructing a slice from a null pointer | |
+| odds-0.4.0 | reference coercion in copy | |
+| wee_alloc-0.4.5 | Dereference of null pointer | |
+| v_escape-0.18.0 | | |
+| capnp-0.14.5 | | |
+| async-graphql-value-3.0.27 | | |
+| boxfnonce-0.1.1 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| rustc-rayon-core-0.3.2 | | |
+| ckb-merkle-mountain-range-0.3.2 | Use of `mem::uninitialized`| |
+| wasmer-2.2.0-rc1 | Wrong calling convention | |
+| v_htmlescape-0.14.1 | | |
+| zmq-sys-0.11.0 | `bindgen` generates deref of null pointers | |
+| cgmath-0.18.0 | | |
+| c_linked_list-1.1.1 | | |
+| windows_reader-0.30.0 | | |
+| r2d2_sqlite-0.19.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| chashmap-2.2.2 | `owning_ref` | |
+| pollster-0.2.5 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| fallible_collections-0.4.4 | Construction of a too-large slice | |
+| loopdev-0.4.0 | `bindgen` generates deref of null pointers | |
+| freetype-0.7.0 | `bindgen` generates deref of null pointers | |
+| owned-alloc-0.2.0 | | |
+| smallstr-0.2.0 | | |
+| rstar-0.8.4 | `pdqselect` | |
+| tower-util-0.3.1 | `futures_util` | |
+| tower-limit-0.1.3 | `tokio-sync` | |
+| tower-buffer-0.3.0 | `tokio` | |
+| tower-retry-0.3.0 | `tokio` | |
+| aligned-0.4.0 | | |
+| supercow-0.1.0 | Use of `mem::uninitialized` | |
+| coarsetime-0.1.21 | Incorrect `assume_init()` | |
+| pkcs11-0.5.0 | | |
