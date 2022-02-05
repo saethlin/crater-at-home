@@ -151,3 +151,25 @@
 | blake2b-rs-0.2.0 | `bindgen` generates deref of null pointers | |
 | typed-index-collections-3.0.3 | | |
 | rustc-ap-rustc_index-727.0.0 | `arrayvec` | |
+| axum-core-0.1.1 | `http` | |
+| rustc-ap-rustc_arena-727.0.0 | | |
+| aws-smithy-eventstream-0.36.0 | `bytes` | |
+| triggered-0.1.2 | | |
+| wasm-bindgen-wasm-interpreter-0.2.79 | `& -> &mut` | |
+| safe-transmute-0.11.2 | misaligned pointer | |
+| libparted-sys-0.3.1 | `bindgen` generates deref of null pointers | |
+| ndarray-stats-0.5.0 | `matrixmultiply` | |
+| crc64-1.0.0 | misaligned pointer | |
+| randomkit-0.1.1 | Use of `mem::uninitialized` | |
+| usb-device-0.2.8 | Use of `mem::uninitialized` | |
+| versionize-0.1.6 | `crc64` | |
+| ustr-0.8.1 | | |
+| blkid-sys-0.1.6 | `bindgen` generates deref of null pointers | |
+| jwt-simple-0.10.8 | `coarsetime` | |
+| blst-0.3.6 | Incorrect `assume_init()` | |
+| futures_codec-0.4.1 | `bytes` | |
+| tonic-web-0.2.0 | `bytes` | |
+| circular-0.3.0 | `ptr::copy` slicing invalidation | |
+| json-rpc-types-1.0.2 | `str-buf` | |
+| derive-error-0.0.5 | `rayon` | |
+| typed-headers-0.2.0 | `bytes` | |
