@@ -1,7 +1,7 @@
 ### Crates where `cargo miri test` flags UB (sorted by downloads)
 
 This list maintained entirely by hand, and comes with quite a few caveats.
-Most importantly, this is _not_ a list of crates which contain UB. Miri implements a prototype set of rules, and this list is based on running `cargo miri test` on the published version of each crate, with the strictest checks Miri has to offer. Some items in this list might be UB but probably won't be, some will probably be UB but technically aren't optimized on yet, and some are definitely UB right now.
+Most importantly, this is _not_ a list of crates which contain UB. Miri implements a prototype set of rules, and this list is based on running `cargo miri test` on the published version of each crate, with the strictest checks Miri has to offer. Some items in this list might be UB but probably won't be, some will probably be UB but aren't yet, and some are definitely UB right now and may produce miscompilations. It is a goal for this list to eventually be empty, but that will mostly likely occur due to a combination of changes to the rules that Miri checks and patches to the listed crates.
 
 If it seems like there is a crate missing, it is likely that crate's test suite attempts to execute an operation that Miri does not support.
 
