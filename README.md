@@ -1,4 +1,11 @@
-### Crates that don't pass Miri (sorted by downloads)
+### Crates where `cargo miri test` flags UB (sorted by downloads)
+
+This list maintained entirely by hand, and comes with quite a few caveats.
+Most importantly, this is _not_ a list of crates which contain UB. Miri implements a prototype set of rules, and this list is based on running `cargo miri test` on the published version of each crate, with the strictest checks Miri has to offer. Some items in this list might be UB but probably won't be, some will probably be UB but technically aren't optimized on yet, and some are definitely UB right now.
+
+If it seems like there is a crate missing, it is likely that crate's test suite attempts to execute an operation that Miri does not support.
+
+If it seems like there's a crate here that shouldn't be, it's possible the list is out of date, the fix hasn't been published yet, or the code that causes `cargo miri test` to fail is being pulled in through a dependency. I'm attempting to call out the last case in this table, but of course this is maintained by a human so mistakes happen.
 
 | Crate | Cause | Status |
 | ----- | ----- | ----- |
@@ -173,3 +180,6 @@
 | json-rpc-types-1.0.2 | `str-buf` | |
 | derive-error-0.0.5 | `rayon` | |
 | typed-headers-0.2.0 | `bytes` | |
+| timer-0.2.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| mqttbytes-0.6.0 | `bytes` | |
+| abomonation_derive-0.5.0 | `abomonation` | |
