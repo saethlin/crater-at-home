@@ -3,9 +3,8 @@
 | Crate | Cause | Status |
 | ----- | ----- | ----- |
 | smallvec-1.8.0 | Pointer invalidation via `&mut` usage | https://github.com/servo/rust-smallvec/pull/277 |
-| block-buffer-0.10.0 | `&mut -> & -> &mut` | |
 | crossbeam-utils-0.8.6 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
-| scopeguard-1.1.0 | `&mut array[index]` invalidation | |
+| scopeguard-1.1.0 | `&mut array[index]` invalidation | https://github.com/bluss/scopeguard/pull/35 |
 | bytes-1.1.0 | Pointer invalidation via Box creation | https://github.com/tokio-rs/bytes/pull/523 |
 | semver-1.0.4| int-to-pointer cast | https://github.com/rust-lang/unsafe-code-guidelines/issues/291
 | slab-0.4.5 | `as_mut_ptr` invalidation | |
@@ -14,7 +13,7 @@
 | half-1.8.2 | `&mut -> & -> &mut` | |
 | crossbeam-epoch-0.9.5 | int-to-pointer cast | |
 | crossbeam-deque-0.7.4 | Type validation failed in `crossbeam-epoch` | |
-| prost-0.9.0 | `bytes` | See above |
+| prost-0.9.0 | `bytes` | |
 | pegtraph-0.6.0 | `as_mut_ptr` invalidation | |
 | rayon-1.9.1 | int-to-pointer cast | https://github.com/rayon-rs/rayon/pull/907 |
 | bumpalo-3.9.1  | Many int-to-pointer casts | |
@@ -132,3 +131,23 @@
 | supercow-0.1.0 | Use of `mem::uninitialized` | |
 | coarsetime-0.1.21 | Incorrect `assume_init()` | |
 | pkcs11-0.5.0 | | |
+| bb8-0.7.1 | `tokio` | |
+| quinn-proto-0.8.0 | `bytes` | |
+| primal-check-0.3.1 | Offsetting a pointer out of bounds | |
+| rulinalg-0.4.2 | Use of `mem::uninitialized` | |
+| intrusive-collections-0.9.3 | | |
+| lru_time_cache-0.11.11 | | |
+| binary-heap-plus-0.4.1 | | |
+| httptest-0.15.4 | `bytes` | |
+| http-serde-1.0.3 | `http` | |
+| r0-1.0.0 | | |
+| spinning-0.1.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| packed_struct-0.10.0 | `bitvec` | |
+| jod-thread-0.1.2 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| memory-lru-0.1.0 | `lru` | |
+| platform-info-0.2.0 | Use of `mem::uninitialized` | |
+| memmem-0.1.1 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| futures-locks-0.7.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| blake2b-rs-0.2.0 | `bindgen` generates deref of null pointers | |
+| typed-index-collections-3.0.3 | | |
+| rustc-ap-rustc_index-727.0.0 | `arrayvec` | |
