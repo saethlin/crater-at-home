@@ -46,7 +46,7 @@ fn main() {
         tc.uninstall(&workspace).unwrap();
     }
 
-    let nightly = Toolchain::dist("nightly-2022-01-27");
+    let nightly = Toolchain::dist("nightly-2022-02-05");
 
     nightly.install(&workspace).unwrap();
     nightly.add_component(&workspace, "rust-src").unwrap();

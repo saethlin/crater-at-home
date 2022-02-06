@@ -19,14 +19,14 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | http-0.2.6 | `mem::uninitialized` | https://github.com/hyperium/http/pull/428 |
 | half-1.8.2 | `&mut -> & -> &mut` | |
 | crossbeam-epoch-0.9.5 | int-to-pointer cast | |
-| crossbeam-deque-0.7.4 | Type validation failed in `crossbeam-epoch` | |
+| crossbeam-deque-0.7.4 | Type validation failed in `crossbeam-epoch` | https://github.com/crossbeam-rs/crossbeam/pull/779 |
 | prost-0.9.0 | `bytes` | |
 | pegtraph-0.6.0 | `as_mut_ptr` invalidation | |
 | rayon-1.9.1 | int-to-pointer cast | https://github.com/rayon-rs/rayon/pull/907 |
 | bumpalo-3.9.1  | Many int-to-pointer casts | |
 | lexical-core-0.8.1 | Please don't use this many macros to write unsafe code | |
-| iovec-0.1.4 | | |
-| scoped-tls-1.0.0 | | |
+| iovec-0.1.4 | `& -> &mut` | Fixed version was yanked |
+| scoped-tls-1.0.0 | int-to-pointer cast | https://github.com/rust-lang/unsafe-code-guidelines/issues/291 |
 | arc-swap-1.5.0 | | |
 | minimal-lexical-0.1.4 | | |
 | aes-0.7.5 | Use of uninitialized memory in `stdarch` | |
@@ -170,7 +170,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | randomkit-0.1.1 | Use of `mem::uninitialized` | |
 | usb-device-0.2.8 | Use of `mem::uninitialized` | |
 | versionize-0.1.6 | `crc64` | |
-| ustr-0.8.1 | | |
+| ustr-0.8.1 | int-to-pointer cast | |
 | blkid-sys-0.1.6 | `bindgen` generates deref of null pointers | |
 | jwt-simple-0.10.8 | `coarsetime` | |
 | blst-0.3.6 | Incorrect `assume_init()` | |
@@ -183,3 +183,47 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | timer-0.2.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
 | mqttbytes-0.6.0 | `bytes` | |
 | abomonation_derive-0.5.0 | `abomonation` | |
+| aws_lambda_events-0.5.0 | `http` | |
+| wasmer-near-2.2.0 | Wrong calling convention | |
+| kvm-ioctls-0.11.0 | Miri defect | https://github.com/rust-lang/miri/issues/1892 |
+| abomonation-0.7.3 | So many things. Please don't use this crate. | |
+| swc_ecma_utils-0.64.0 | `string_cache` | |
+| grep-printer-0.1.6 | `stdarch` | |
+| tower-load-0.3.0 | `tokio` | |
+| dprint-swc-ecma-ast-view-0.48.2 | `bumpalo` | |
+| dprint-core-0.50.0 | `bumpalo` | |
+| tauri-utils-1.0.0-beta.3 | `html5ever` | |
+| triomphe-0.1.5 | | |
+| cryptoxide-0.4.1 | | |
+| futures-batch-0.6.0 | `tokio` | |
+| cmac-0.6.0 | `stdarch` | |
+| bevy-glsl-to-spirv-0.2.1 | `bindgen` generates deref of null pointers | |
+| linked_list_allocator-0.9.1 | | |
+| nvml-wrapper-sys-0.5.0 | `bindgen` generates deref of null pointers | |
+| garando_syntax-0.1.0 | Out of bounds `get_unchecked` | |
+| dprint-plugin-typescript-0.62.1 | `string_cache` | |
+| ritelinked-0.3.2 | | |
+| ckb-librocksdb-sys-6.20.4 | `bindgen` generates deref of null pointers | |
+| csaps-0.3.0 | | |
+| capnp-futures-0.14.1 | `futures_executor` | |
+| miette-3.3.0 | Invalid transmute, like `color-eyre` | |
+| tentacle-multiaddr-0.3.2 | `bytes` | |
+| crypto_api_chachapoly-0.5.0 | `json` | |
+| unzip-0.1.0 | `temporary` | |
+| tower-ready-cache-0.3.1 | `futures_util` | |
+| minisign-verify-0.2.0 |
+| lsp-codec-0.3.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| www-authenticate-0.4.0 | `bytes` | |
+| parse_link_header-0.3.2 | `bytes` | |
+| vtparse-0.6.0 | Out-of-bounds `offset` | |
+| arraydeque-0.4.5 | | |
+| hamming-0.1.3 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| sxd-document-0.3.2 | Attempt to create a dangling reference | |
+| thread-scoped-1.0.2 | | |
+| smallbitvec-2.5.1 | | |
+| bloom-filters-0.1.2 | misaligned pointer | |
+| fluvio-wasm-timer-0.2.5 | | |
+| virtio-bindings-0.1.0 | `bindgen` generates deref of null pointers | |
+| hibitset-0.6.3 | | |
+| thunderdome-0.5.0 | | |
+| datatest-stable-0.1.1 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
