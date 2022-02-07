@@ -8,5 +8,5 @@ clap = { version = "3.0.14", features = ["derive"] }
 env_logger = "0.9.0"
 git2 = { version = "0.13.25", features = ["vendored-libgit2", "vendored-openssl"] }
 log = "0.4.14"
-rustwide = "0.14.0"
+rustwide = { git = "https://github.com/saethlin/rustwide" }
 tempfile = "3.3.0"

@@ -1,4 +1,4 @@
-### Crates where `cargo miri test` flags UB (sorted by downloads)
+### Crates where `cargo miri test` flags UB (approximately sorted by downloads)
 
 This list maintained entirely by hand, and comes with quite a few caveats.
 Most importantly, this is _not_ a list of crates which contain UB. Miri implements a prototype set of rules, and this list is based on running `cargo miri test` on the published version of each crate, with the strictest checks Miri has to offer. Some items in this list might be UB but probably won't be, some will probably be UB but aren't yet, and some are definitely UB right now and may produce miscompilations. It is a goal for this list to eventually be empty, but that will mostly likely occur due to a combination of changes to the rules that Miri checks and patches to the listed crates.
@@ -20,6 +20,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | half-1.8.2 | `&mut -> & -> &mut` | |
 | crossbeam-epoch-0.9.5 | int-to-pointer cast | |
 | crossbeam-deque-0.7.4 | Type validation failed in `crossbeam-epoch` | https://github.com/crossbeam-rs/crossbeam/pull/779 |
+| gimli-0.26.1 | | |
 | prost-0.9.0 | `bytes` | |
 | pegtraph-0.6.0 | `as_mut_ptr` invalidation | |
 | rayon-1.9.1 | int-to-pointer cast | https://github.com/rayon-rs/rayon/pull/907 |
@@ -227,3 +228,35 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | hibitset-0.6.3 | | |
 | thunderdome-0.5.0 | | |
 | datatest-stable-0.1.1 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| tokio-proto-0.1.1 | Depends on an ancient and buggy version of `smallvec` | |
+| fasthash-sys-0.3.2 | `bindgen` generates deref of null pointers | |
+| aws-sdk-secretsmanager-0.6.0 | `http` | |
+| syscalls-0.5.0 | Miri defect | https://github.com/rust-lang/miri/pull/1970 |
+| selinux-sys-0.5.1 | `bindgen` generates deref of null pointers | |
+| atom-0.3.6 | | |
+| fts-sys-0.2.1 | `bindgen` generates deref of null pointers | |
+| qutex-0.2.3 | Miri defect | https://github.com/rust-lang/unsafe-code-guidelines/issues/72 |
+| base58check-0.1.0 | `generic-array` used to use `mem::uninitialized` | |
+| bus-2.2.3 | | |
+| boring-sys-2.0.0 | `bindgen` generates deref of null pointers | |
+| tryhard-0.4.0 | `tokio` | |
+| flurry-0.3.1 | `crossbeam_epoch` | |
+| triple_accel-0.4.0 | | |
+| vfio-bindings-0.3.1 | `bindgen` generates deref of null pointers | |
+| serde_tokenstream-0.1.3 | | |
+| primordial-0.4.0 | | |
+| relay-0.1.1 | Miri defect | https://github.com/rust-lang/unsafe-code-guidelines/issues/72 |
+| jwalk-0.6.0 | `crossbeam_epoch` | |
+| serde-hex-0.1.0 | Depends on an old version of array-init which uses `mem::uninitialized` | |
+| rust_hawktracer_sys-0.4.2 | `bindgen` generates deref of null pointers | |
+| harfbuzz-sys-0.5.0 | `bindgen` generates deref of null pointers | |
+| ndarray_einsum_beta-0.7.0 | `matrixmultiply` | |
+| tame-gcs-0.10.0 | `bytes` | |
+| addr-0.15.3 | `rayon` | |
+| ferris-says-0.2.1 | Depends on an old and broken version of `smallvec` | |
+| reqwest-tracing-0.2.0 | `http` | |
+| crossfire-0.1.7 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| avahi-sys-0.10.0 | `bindgen` generates deref of null pointers | |
+| ffmpeg-sys-next-4.4.0-next.2 | `bindgen` generates deref of null pointers | |
+| primal-estimate-0.3.1 | Out-of-bounds `offset` | |
+| cosmwasm-bignumber-2.2.0 | `bigint` | |

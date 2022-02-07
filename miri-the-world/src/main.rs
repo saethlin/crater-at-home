@@ -89,15 +89,6 @@ fn main() {
             continue;
         }
 
-        // If the crate packaged a lockfile, delete it.
-        // This ensures that we build with the latest-permitted versions of dependencies, picking
-        // up any patches that have been released since publication.
-        let lockfile = build_path.join("builds/miri-the-world/source/Cargo.lock");
-        if lockfile.exists() {
-            log::warn!("Found packaged Cargo.lock, attempting to delete");
-            fs::remove_file(lockfile).unwrap();
-        }
-
         let storage = logging::LogStorage::new(log::LevelFilter::Debug);
 
         let res = logging::capture(&storage, || {
