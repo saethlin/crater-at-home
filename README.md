@@ -18,37 +18,39 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | arrayvec-0.7.2 | `as_mut_ptr` invalidation | |
 | http-0.2.6 | `mem::uninitialized` | https://github.com/hyperium/http/pull/428 |
 | half-1.8.2 | `&mut -> & -> &mut` | |
-| crossbeam-epoch-0.9.5 | int-to-pointer cast | |
+| crossbeam-epoch-0.9.7 | int-to-pointer cast | |
 | crossbeam-deque-0.7.4 | Type validation failed in `crossbeam-epoch` | https://github.com/crossbeam-rs/crossbeam/pull/779 |
-| gimli-0.26.1 | | |
+| gimli-0.26.1 | `as_ptr -> Vec` | https://github.com/gimli-rs/gimli/pull/614 |
 | prost-0.9.0 | `bytes` | |
 | pegtraph-0.6.0 | `as_mut_ptr` invalidation | |
 | rayon-1.9.1 | int-to-pointer cast | https://github.com/rayon-rs/rayon/pull/907 |
 | bumpalo-3.9.1  | Many int-to-pointer casts | |
 | lexical-core-0.8.1 | Please don't use this many macros to write unsafe code | |
+| bitvec-1.0.0 | | |
 | iovec-0.1.4 | `& -> &mut` | Fixed version was yanked |
 | scoped-tls-1.0.0 | int-to-pointer cast | https://github.com/rust-lang/unsafe-code-guidelines/issues/291 |
-| arc-swap-1.5.0 | | |
+| arc-swap-1.5.0 | Provenance + mutation through a pointer derived from `&T` | |
 | minimal-lexical-0.1.4 | | |
 | aes-0.7.5 | Use of uninitialized memory in `stdarch` | |
-| lru-0.7.2 | | |
+| lru-0.7.2 | invalidating a pointer by moving the Box it points into | |
 | threadpool-1.8.1 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
-| crossbeam-0.8.1 | | |
-| typed-arena-2.0.1 | Use of uninitialized memory | |
-| owning_ref-0.4.1 | | |
-| headers-0.3.6 | | |
+| crossbeam-0.8.1 | `crossbeam-epoch` | |
+| typed-arena-2.0.1 | pointer invalidation from writes | |
+| owning_ref-0.4.1 | invalidating a pointer by moving the Box it points into | |
+| headers-0.3.6 | `bytes` | |
 | utf8-ranges-1.0.4 | Attempt to construct invalid `char` | |
-| encode_unicode-0.3.6 | | |
+| encode_unicode-0.3.6 | Invalid get_unchecked | https://github.com/tormol/encode_unicode/issues/12 |
 | tracing-opentelemetry-0.16.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
 | beef-0.5.1 | | |
 | futures-timer-3.0.2 | int-to-pointer cast (should use `AtomicPtr`) | |
 | base-x-0.2.8 | | |
-| rusticata-macros-4.0.0 | Incorrect `assume_init()` | |
+| lalrpop-0.19.7 | | |
 | rusoto_credential-0.47.0 | `http` | |
 | buf_redux-0.8.4 | | |
 | tokio-io-0.1.13 | Miri defect | https://github.com/rust-lang/unsafe-code-guidelines/issues/72 |
 | ascii-1.0.0 | | |
 | block-modes-0.8.1 | | |
+| twox-hash | `stdarch` | |
 | cranelift-wasm-0.80.0 | `& -> &mut` | |
 | lexical-6.0.1 | `lexical-write-float` | |
 | chacha20-0.8.1 | `stdarch` | |
@@ -58,11 +60,13 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | termios-0.3.3 | Use of `mem::uninitialized` | |
 | aliasable-0.1.3 | Narrowing provenance via `&mut` coercion to `*mut` | https://github.com/avitex/rust-aliasable/pull/6 |
 | r2d2-0.8.9 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| rgb-0.8.31 | `& -> &mut` | |
 | tokio-current-thread-0.1.7 | Converts 0x10 into a pointer | |
 | json-0.12.4 | | |
 | sized-chunks-0.6.5 | | |
 | asynchronous-codec-0.6.0 | `bytes` | |
 | heapless-0.7.10 | | |
+| futures-intrusive-0.4.0 | | |
 | rust-argon2-1.0.0 | | |
 | futures-cpupool-0.1.8 | Miri defect | https://github.com/rust-lang/unsafe-code-guidelines/issues/72 |
 | alloc-no-stdlib-2.0.3 | Read of uninitialized memory in test | https://github.com/dropbox/rust-alloc-no-stdlib/issues/12 |
@@ -70,6 +74,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | prettytable-rs-0.8.0 | | |
 | alloc-stdlib-0.2.1 | Read of uninitialized memory in test | https://github.com/dropbox/rust-alloc-no-stdlib/issues/12 |
 | tokio-codec-0.1.2 | `bytes` 0.4.12 uses `mem::uninitialized` | |
+| attohttpc-0.18.0 | `http` | |
 | wasm-timer-0.2.5 | | |
 | cortex-m-0.7.4 | Miri defect (access of a platform-specific address) | |
 | if_rust_version-1.0.0 | Uses `mem::uninitialized` in doctest as an example | |
@@ -81,6 +86,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | sluice-0.5.5 | `futures-executor` | |
 | rkyv-0.7.31 | | |
 | ash-0.35.1+1.2.203 | `bindgen` generates deref of null pointers | |
+| libp2p-relay-0.6.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
 | libp2p-gossipsub-0.35.0 | `bytes` | |
 | perf-event-open-sys-1.0.1 | `bindgen` generates deref of null pointers | |
 | dlmalloc-0.2.3 | | |
@@ -91,6 +97,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | safe_arch-0.6.0 | `stdarch` | |
 | bytes-utils-0.1.1 | `bytes` | |
 | exit-future-0.2.0 | `futures-executor` | |
+| sled-0.34.7 | | |
 | loom-0.5.4 | `generator` | |
 | generator-0.7.0 | Incorrect `assume_init()` | |
 | rend-0.3.6 | Attempt to construct invalid `char` | |
@@ -260,3 +267,264 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | ffmpeg-sys-next-4.4.0-next.2 | `bindgen` generates deref of null pointers | |
 | primal-estimate-0.3.1 | Out-of-bounds `offset` | |
 | cosmwasm-bignumber-2.2.0 | `bigint` | |
+| httpmock-0.6.6 | `bytes` | |
+| mft-0.6.0 | `lru` | |
+| minimp3-sys-0.3.2 | `bindgen` generates deref of null pointers | |
+| internment-0.5.5 | | |
+| tokio-process-0.2.5 | Old version of `crossbeam-queue` | |
+| sprs-0.11.0 | `matrixmultiply` | |
+| rust-s3-0.28.1 | `http` | |
+| leaky-bucket-0.11.0 | `tokio` | |
+| elf_rs-0.2.0 | Misaligned pointer | |
+| rumqttc-0.10.0 | `bytes` | |
+| xmas-elf-0.8.0 | Transmute to an unaligned reference | |
+| dhat-0.3.0 | Miri thinks there is deallocation of Rust heap with `libc::free` | |
+| rav1e-0.5.1 | `rayon` | |
+| deno_lint-0.23.0 | `scoped-tls` | |
+| bcder-0.6.1 | | |
+| libxml-0.3.0 | `bindgen` generates deref of null pointers | |
+| httpbis-0.9.1 | `bytes` | |
+| azure_storage_mirror-1.0.0 | `bytes` | |
+| primal-0.3.0 | Out-of-bounds `offset` | |
+| leaky-bucket-lite-0.5.1 | `tokio` | |
+| near-vm-logic-0.11.0 | | |
+| mpart-async-0.5.0 | `bytes` | |
+| shiplift-0.7.0 | `bytes` | |
+| lopdf-0.27.0 | Old `itoa` used `mem::uninitialized` | |
+| openat-0.1.21 | Miri defect | https://github.com/rust-lang/miri/pull/1970 |
+| tun-0.5.3 | Miri defect | https://github.com/rust-lang/miri/pull/1970 |
+| mdbook-linkcheck-0.7.6 | `http` | |
+| deno_ast-0.10.0 | `string_cache` | |
+| shred-0.12.0 | `crossbeam_epoch` | |
+| tantivy-0.16.1 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| resize-0.7.2 | `rgb` | |
+| cargo-update-8.1.2 | `json` | |
+| octocrab-0.15.4 | `bytes` | |
+| serde_prometheus-0.1.6 | Old `itoa` used `mem::uninitialized` | |
+| bevy_tasks-0.6.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| select-0.6.0-alpha.1 | `tendril` | |
+| adblock-0.4.3 | `seahash` | |
+| metrics-runtime-0.13.1 | `crossbeam_epoch` | |
+| ark-groth16-0.3.0 | `rayon` | |
+| ws-0.9.1 | `generic-array` | |
+| io-uring-0.5.2 | `bindgen` generates deref of null pointers | |
+| dmsort-1.0.1 | | |
+| psl-2.0.68 | `rayon` | |
+| r2d2_redis-0.14.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| protobuf-parse-3.0.0-alpha.2 | `linked_hash_map` | |
+| rustdct-0.7.0 | `rustfft` | |
+| libusb1-sys-0.6.0 | Incorrect `assume_init` | |
+| elementtree-0.7.0 | `string_cache` | |
+| prettydiff-0.5.1 | `prettytable` | |
+| nom_locate-4.0.0 | | |
+| bigint-4.4.3 | Use of `mem::uninitialized` | |
+| rusb-0.9.0 | | |
+| ringbuf-0.2.6 | | |
+| boring-2.0.0 | Use of `mem::uninitialized` | |
+| scraper-0.12.0 | `tendril` | |
+| sdl2-sys-0.35.1 | `bindgen` generates deref of null pointers | |
+| remoteprocess-0.4.8 | | |
+| geo-0.18.0 | `pdqselect` | |
+| grep-searcher-0.1.8 | `bstr` | |
+| kuchiki-0.8.1 | `html5ever` | |
+| rustc-rayon-0.3.2 | | |
+| xcb-1.0.0-beta.4 | Misaliged pointer | |
+| hyperlocal-0.8.0 | `bytes` | |
+| ammonia-3.1.3 | `tendril` | |
+| rusoto_dynamodb-0.47.0 | `bytes` | |
+| markup5ever_rcdom-0.1.0 | `html5ever` | |
+| metrics-util-0.11.0 | | |
+| jsonrpc-http-server-18.0.0 | `http` | |
+| xml5ever-0.16.2 | `markup5ever` | |
+| generator-0.7.0 | Incorrect `assume_init` | |
+| async-tungstenite-0.16.1 | `bytes` | |
+| toml_edit-0.13.3 | `rayon` | |
+| color-eyre-0.6.0 | | |
+| protobuf-codegen-3.0.0-alpha.2 | `get_unchecked` out of bounds | |
+| tendril-0.4.2 | int-to-pointer cast | |
+| ndarray-0.15.4 | Narrowing provenance through a reference | |
+| integer-encoding-2.0.2 | Misaligned pointer | |
+| pretty-0.11.2 | | |
+| matrixmultiply-0.3.2 | | |
+| backoff-0.4.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| blocking-1.1.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| string_cache-0.8.2 | Invalidating a pointer by moving the Box it points into | |
+| tungstenite-0.16.0 | `http` | |
+| hostname-0.3.1 | `syn` | |
+| h2-0.3.11 | `http` | |
+| hyper-0.14.16 | `bytes` | |
+| crossbeam-epoch-0.9.6 | int-to-pointer cast | |
+| vsdbsled-0.34.7-patched | | |
+| trees-0.4.2 | | |
+| context-2.1.0 | Use of `mem::uninitialized` | |
+| dprint-plugin-markdown-0.12.1 | `bumpalo` | |
+| realfft-2.0.1 | | |
+| spmc-0.3.0 | | |
+| pkg-version-1.0.0 | `syn` | |
+| arraystring-0.3.0 | | |
+| grpc-0.8.3 | `bytes` | |
+| svgdom-0.18.0 | `siphasher` | |
+| tame-oauth-0.6.0 | `bytes` | |
+| itsdangerous-0.4.0 | `generic-array` | |
+| enr-0.5.1 | `bytes` | |
+| sp-utils-3.0.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| linkcheck-0.4.1 | `bytes` | |
+| deno_graph-0.21.1 | `string_cache` | |
+| polars-core-0.19.1 | | |
+| patricia_tree-0.3.1 | | |
+| slice-group-by-0.3.0 | | |
+| rapier2d-0.12.0-alpha.1 | | |
+| sqlite3-sys-0.13.0 | `temporary` | |
+| miniz_oxide_c_api-0.3.0 | | |
+| domain-0.6.1 | `as_ptr -> &mut` | |
+| crt0stack-0.1.0 | | |
+| lambda_http-0.4.1 | `http` | |
+| order-stat-0.1.3 | | |
+| target_build_utils-0.3.1 | `siphasher` | |
+| self_encryption-0.27.1 | `crossbeam_epoch` | |
+| dssim-core-3.1.0 | `rayon` | |
+| html2md-0.2.13 | `tendril` | |
+| rust-gmp-kzen-0.5.1 | Use of `mem::uninitialized` | |
+| flatdata-0.5.3 | | |
+| dssim-3.1.2 | `rayon` | |
+| kvm-bindings-0.5.0 | `bindgen` generates deref of null pointers | |
+| rapier3d-0.12.0-alpha.1 | | |
+| cloudflare-0.9.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| bbs-0.4.1 | `generic-array` | |
+| mbox-0.6.0 | | |
+| tracy-client-sys-0.16.0 | `bindgen` generates deref of null pointers | |
+| lenient_semver-0.4.2 | `semver` | |
+| yastl-0.1.2 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| tract-linalg-0.15.8 | Out-of-bounds `offset` | |
+| stun_codec-0.1.13 | | |
+| croaring-sys-0.5.1 | `bindgen` generates deref of null pointers | |
+| libevent-sys-0.2.4 | `bindgen` generates deref of null pointers | |
+| paho-mqtt-sys-0.6.0 |  `bindgen` generates deref of null pointers | |
+| lioness-0.1.2 | `generic-array` | |
+| epimetheus-0.7.1 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| sxd-xpath-0.4.2 | | |
+| cached-path-0.5.1 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| drain-0.1.0 | `tokio` | |
+| memcache-0.16.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| hyperscan-sys-0.2.2 | `bindgen` generates deref of null pointers | |
+| cargo-hakari-0.9.11 | `color_eyre` | |
+| minisign-0.7.0 | | |
+| av-data-0.3.0 | `bytes` | |
+| stable-eyre-0.2.2 | `eyre` | |
+| storage-proofs-core-11.0.0 | `generic-array` | |
+| near-sdk-4.0.0-pre.6 | | |
+| murmurhash3-0.0.5 | transmuting a `&[u8]` to a `&[u64]`, producing a dangling reference | |
+| tensorflow-sys-0.20.0 | `bindgen` generates deref of null pointers | |
+| moka-cht-0.4.2 | | |
+| curv-kzen-0.9.0 | Use of `mem::uninitialized` | |
+| cosmrs-0.4.1 | `bytes` | |
+| pen-ffi-0.3.39 | | |
+| skim-0.9.4 | `beef` | |
+| cuda-driver-sys-0.3.0 | `bindgen` generates deref of null pointers | |
+| sw-composite-0.7.14 | `stdarch` | |
+| lua_bind_hash-1.0.1 | Misaligned pointer | |
+| mp4parse-0.12.0 | | |
+| vek-0.15.5 | Incorrect use of `assume_init` | |
+| dodrio-0.2.0 | `bumpalo` | |
+| xkbcommon-sys-1.3.0 | `bindgen` generates deref of null pointers | |
+| hashicorp_vault-2.1.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| reddsa-0.2.0 | `bitvec` | |
+| rand_seeder-0.2.2 | copy+paste of old `siphash` code | |
+| metrohash-1.0.6 | Use of `mem::uninitialized` | |
+| userfaultfd-sys-0.4.1 | `bindgen` generates deref of null pointers | |
+| elastic-array-plus-0.10.0 | Use of `mem::uninitialized` | |
+| rtp-0.6.5 | `bytes` | |
+| redis-protocol-4.0.1 | `bytes` | |
+| sidekiq-0.11.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| timely_communication-0.12.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| ratelimit_meter-5.0.0 | | |
+| blake2b-ref-0.3.0 | Unaligned reference | |
+| nipper-0.1.9 | `tendril` | |
+| rtcp-0.6.5 | `bytes` | |
+| async_cell-0.2.0 | `generator` | |
+| webrtc-media-0.4.5 | `bytes` | |
+| rusty_pool-0.6.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| imap-3.0.0-alpha.4 | | |
+| html2text-0.2.1 | `html4ever` | |
+| xoodyak-0.7.3 | `stdarch` | |
+| near-sdk-core-3.1.0 | `syn` | |
+| deadqueue-0.2.0 | `tokio` | |
+| zeno-0.2.2 | Incorrect use of `assume_init` | |
+| stack-buf-0.1.6 | | |
+| ntex-router-0.5.1 | `bytes` | |
+| conrod_core-0.76.1 | `petgraph` | |
+| fluvio-0.12.1 | `bytes` | |
+| devicemapper-sys-0.1.2 | `bindgen` generates deref of null pointers | |
+| flapigen-0.6.0-pre7 | `petgraph` | |
+| rust-releases-0.21.1 | `http` | |
+| splitmut-0.2.1 | | |
+| dynfmt-0.1.5 | Incorrect use of `assume_init` | |
+| tract-hir-0.15.8 | Creating a slice from a null pointer | |
+| buddy-alloc-0.4.1 | | |
+| ntex-bytes-0.1.11 | Incorrect use of `assume_init` | |
+| libcryptsetup-rs-0.4.4 | `strlen` called on zero-size allocation | |
+| shuffling-allocator-1.1.2 | | |
+| aligned_alloc-0.1.3 | Invalid alignment passed to `posix_memalign`? Maybe? | |
+| aws-sdk-kinesis-0.6.0 | `http` | |
+| starlark-0.6.0 | | |
+| libcryptsetup-rs-sys-0.1.6 | `bindgen` generates deref of null pointers | |
+| indexed-0.2.0 | Misaligned pointer | |
+| aws-sdk-sso-0.6.0 | `http` | |
+| pinboard-2.1.0 | `crossbeam_epoch` | |
+| dockworker-0.0.23 | `bytes` | |
+| refpool-0.4.3 | | |
+| nav-types-0.5.1 | `nalgebra` | |
+| sliceslice-0.3.1 | `stdarch` | |
+| merkle-sha3-0.1.0 | `rust-crypto` | |
+| mundane-0.5.0 | `bindgen` generates deref of null pointers | |
+| legion-0.4.0 | `smallvec` | |
+| ed25519-bip32-0.4.1 | `cryptoxide` | |
+| teloxide-core-0.3.4 | `bytes` | |
+| amethyst_network-0.15.3 | `bytes` | |
+| rqrr-0.4.0 | `lru` | |
+| ref_filter_map-1.0.1 | | |
+| checkers-0.6.0 | Use of uninitialized memory | |
+| mozangle-0.3.3 | `bindgen` generates deref of null pointers | |
+| buddy_system_allocator-0.8.0 | | |
+| libblkid-rs-sys-0.1.3 | `bindgen` generates deref of null pointers | |
+| deque-0.3.2 | | |
+| v4l-0.12.1 | Miri defect | https://github.com/rust-lang/miri/pull/1970 |
+| os_socketaddr-0.2.0 | Misaligned pointer | |
+| v_jsonescape-0.6.1 | | |
+| rasn-0.5.0 | `bitvec` | |
+| ffmpeg-sys-4.3.3 | `bindgen` generates deref of null pointers | |
+| imagequant-sys-4.0.0-beta.9 | Deref of dangling pointer | |
+| vdso-0.2.0 | Out-of-bounds offset | |
+| twapi-oauth-0.1.4 | `crypto` | |
+| pam-sys-1.0.0-alpha4 | `bindgen` generates deref of null pointers | |
+| defer-drop-1.2.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| wrangler-1.19.7 | `http` | |
+| reductive-0.9.0 | `matrixmultiply` | |
+| ittapi-rs-0.1.6 | `bindgen` generates deref of null pointers | |
+| failsafe-1.1.0 | | |
+| v4l2-sys-mit-0.2.0 | `bindgen` generates deref of null pointers | |
+| aws-sdk-dynamodb-0.6.0 | `http` | |
+| rpki-0.14.1 | `bytes` | |
+| gitlab-0.1407.0 | `bytes` | |
+| thin-vec-0.2.4 | | |
+| ref_thread_local-0.1.1 | | |
+| ink_primitives-3.0.0-rc8 | Misaligned pointer | |
+| ink_env-3.0.0-rc8 | `ink_primitives` | |
+| libxlsxwriter-sys-1.1.1 | `bindgen` generates deref of null pointers | |
+| bee-crypto-0.3.0 | `bee_ternary` | |
+| elrond-wasm-0.27.2 | calling `alloc::alloc` with size 0 | |
+| cargo-deadlinks-0.8.1 | `cssparser`/`selectors` | |
+| webpage-1.4.0 | `html5ever` | |
+| bayer-0.1.5 | Misaligned slice | |
+| gifski-1.6.4 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| glsl-layout-0.4.0 | `offset_of!` expands to deref of null pointers | |
+| stable_bst-0.2.0 | | |
+| scoped-pool-1.0.0 | Old `crossbeam` used `mem::uninitialized` | |
+| selenium-rs-0.1.2 | Old `bytes` used `mem::uninitialized` | |
+| tract-tensorflow-0.15.8 | `tract-linalg` | |
+| gc-0.4.1 | | |
+| datadog-apm-sync-0.4.4 | `http` | |
+| elrond-wasm-debug-0.27.2 | `rand_seeder` | |
+| dynomite-0.10.0 | `bytes` | |
+| riker-0.4.2 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| slice-pool-0.4.1 | | |
