@@ -62,7 +62,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | r2d2-0.8.9 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
 | rgb-0.8.31 | `& -> &mut` | |
 | tokio-current-thread-0.1.7 | Converts 0x10 into a pointer | |
-| json-0.12.4 | | |
+| json-0.12.4 | Self-referential structure | |
 | sized-chunks-0.6.5 | | |
 | asynchronous-codec-0.6.0 | `bytes` | |
 | heapless-0.7.10 | | |
@@ -83,7 +83,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | opentelemetry-http-0.6.0 | `http` | |
 | android_logger-0.10.1 | Use of `mem::uninitialized` | |
 | selectors-0.23.0 | `cssparser` | |
-| sluice-0.5.5 | `futures-executor` | |
+| sluice-0.5.5 | | |
 | rkyv-0.7.31 | | |
 | ash-0.35.1+1.2.203 | `bindgen` generates deref of null pointers | |
 | libp2p-relay-0.6.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
@@ -96,10 +96,9 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | wgpu-core-0.12.2 | | |
 | safe_arch-0.6.0 | `stdarch` | |
 | bytes-utils-0.1.1 | `bytes` | |
-| exit-future-0.2.0 | `futures-executor` | |
 | sled-0.34.7 | | |
 | loom-0.5.4 | `generator` | |
-| generator-0.7.0 | Incorrect `assume_init()` | |
+| generator-0.7.0 | Incorrect `assume_init` | |
 | rend-0.3.6 | Attempt to construct invalid `char` | |
 | conv-0.3.3 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
 | hyperx-1.4.0 | `bytes` | |
@@ -112,7 +111,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | aws-smithy-async-0.36.0 | `tokio` | |
 | aws-endpoint-0.6.0 | `bytes` | |
 | aws-sig-auth-0.6.0 | `bytes` | |
-| intervalier-0.4.0 | `futures-executor` | |
+| intervalier-0.4.0 | ICE? | |
 | pdqselect-0.1.1 | | |
 | rustler_sys-2.1.1 | Constructing a slice from a null pointer | |
 | odds-0.4.0 | reference coercion in copy | |
@@ -122,7 +121,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | async-graphql-value-3.0.27 | | |
 | boxfnonce-0.1.1 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
 | rustc-rayon-core-0.3.2 | | |
-| ckb-merkle-mountain-range-0.3.2 | Use of `mem::uninitialized`| |
+| ckb-merkle-mountain-range-0.3.2 | Use of `mem::uninitialized` | |
 | wasmer-2.2.0-rc1 | Wrong calling convention | |
 | v_htmlescape-0.14.1 | | |
 | zmq-sys-0.11.0 | `bindgen` generates deref of null pointers | |
@@ -144,7 +143,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | tower-retry-0.3.0 | `tokio` | |
 | aligned-0.4.0 | | |
 | supercow-0.1.0 | Use of `mem::uninitialized` | |
-| coarsetime-0.1.21 | Incorrect `assume_init()` | |
+| coarsetime-0.1.21 | Incorrect `assume_init` | |
 | pkcs11-0.5.0 | | |
 | bb8-0.7.1 | `tokio` | |
 | quinn-proto-0.8.0 | `bytes` | |
@@ -181,7 +180,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | ustr-0.8.1 | int-to-pointer cast | |
 | blkid-sys-0.1.6 | `bindgen` generates deref of null pointers | |
 | jwt-simple-0.10.8 | `coarsetime` | |
-| blst-0.3.6 | Incorrect `assume_init()` | |
+| blst-0.3.6 | Incorrect `assume_init` | |
 | futures_codec-0.4.1 | `bytes` | |
 | tonic-web-0.2.0 | `bytes` | |
 | circular-0.3.0 | `ptr::copy` slicing invalidation | |
@@ -715,3 +714,158 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | try-lazy-init-0.0.2 | Old version of `crossbeam` | |
 | eip55-0.1.1 | `rust-crypto` | |
 | cancellation-0.1.0 | |
+| sixtyfps-0.1.6 | | |
+| libftd2xx-ffi-0.8.4 | `bindgen` generates deref of null pointers | |
+| jomini-0.16.4 | `stdarch` | |
+| hrpc-0.33.22 | `bytes` | |
+| crossbeam_requests-0.3.0 | Old `crossbeam-channel` used `mem::zeroed` incorrectly | |
+| ignition-config-0.2.0 | `semver` | |
+| html2runes-1.0.1 | Old `tendril` used `mem::uninitialized` | |
+| bit-matrix-0.6.1 | | |
+| smallset-0.1.1 | | |
+| cstree-0.10.0 | `triomphe` | |
+| join-0.3.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| ark-gm17-0.3.0 | `rayon` | |
+| kolmogorov_smirnov-1.1.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| libsodium-ffi-0.2.2 | `bindgen` generates deref of null pointers | |
+| libsensors-sys-0.2.0 | `bindgen` generates deref of null pointers | |
+| async-jsonrpc-client-0.3.0 | `bytes` | |
+| temporary-0.6.3 | Uses `mem::uninitialized` as a random number generator | |
+| usb-disk-probe-0.1.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| rg3d-core-0.19.0 | `nalgebra` | |
+| lzf-0.3.1 | Use of `mem::uninitialized` | |
+| stream_generator-0.1.0 | `tokio` | |
+| sawtooth-zmq-0.8.2-dev5 | `pulse` | |
+| gazebo-0.4.4 | | |
+| windows_winmd-0.3.1 | | |
+| tokio-mockstream-1.1.0 | `futures` | |
+| futures-test-preview-0.3.0-alpha.19 | `futures-util` | |
+| debruijn-0.3.4 | `stdarch` | |
+| moite_moite-0.2.0 | | |
+| rayon_croissant-0.2.0 | `rayon` | |
+| pagecache-0.19.4 | `crossbeam_epoch` | |
+| dasp_slice-0.11.0 | | |
+| async-walkdir-0.2.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| aws-sdk-lambda-0.6.0 | `http` | |
+| autopilot-0.4.0 | `rgb` | |
+| libusb-0.3.0 | `rusb` | |
+| monitor-0.1.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| obj-rs-0.7.0 | | |
+| pyoxidizer-0.19.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| toml-parse-0.2.11 | `triomphe` | |
+| shaku-0.6.1 | Misaligned pointer | |
+| tokio-rayon-2.1.0 | `tokio` | |
+| tugger-apple-codesign-0.7.0 | `bytes` | |
+| gvr-sys-0.7.2 | `bindgen` generates deref of null pointers | |
+| nmea-parser-0.9.0 | `bitvec` | |
+| oneline-eyre-0.1.0 | Invalid transmute | |
+| tugger-rust-toolchain-0.5.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| async-tftp-0.3.5 | `bytes` | |
+| cyclors-0.1.2 | `bindgen` generates deref of null pointers | |
+| tinysegmenter-0.1.1 | Attempt to construct invalid `char` | |
+| ring_buffer-2.0.2 | | |
+| unqlite-1.5.0 | Invalid `assume_init` | |
+| kuznyechik-0.7.2 | `stdarch` | |
+| ipc-queue-0.1.0 | | |
+| futures_ringbuf-0.3.1 | | |
+| rust-bert-0.17.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| linked-list-0.0.3 | | |
+| gray_matter-0.2.1 | `json` | |
+| aws-sdk-athena-0.6.0 | `http` | |
+| undo-0.47.1 | `arrayvec` | |
+| ntex-amqp-codec-0.8.1 | Invalid `assume_init` | |
+| wikipedia-0.3.4 | `bytes` | |
+| dynamic-array-0.2.3 | Deallocating with the wrong layout | |
+| futures-fs-0.0.5 | `futures` | |
+| rspec-1.0.0 | `rayon` | |
+| raylib-sys-3.7.0 | `bindgen` generates deref of null pointers | |
+| leptonica-sys-0.4.1 | `bindgen` generates deref of null pointers | |
+| fitsio-sys-0.4.0 | `bindgen` generates deref of null pointers | |
+| h3ron-h3-sys-0.13.0 | `bindgen` generates deref of null pointers | |
+| runtime-0.3.0-alpha.8 | `futures-util` | |
+| strason-0.4.0 | | |
+| efd-0.11.1 | `matrixmultiply` | |
+| yaxpeax-arm-0.2.3 | `bitvec` | |
+| lasy-0.4.1 | `petgraph` | |
+| topograph-0.3.1-alpha.1 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| double-checked-cell-async-2.0.2 | Old version of `crossbeam` | |
+| bytepack-0.4.1 | Misaligned pointer | |
+| simple-server-0.4.0 | Old version of `bytes` | |
+| microfft-0.4.0 | `rustfft` | |
+| zfp-sys-0.1.10 | `bindgen` generates deref of null pointers | |
+| permutator-0.4.3 | | |
+| aws-sdk-ecr-0.6.0 | `http` | |
+| mqtt4bytes-0.4.0 | `bytes` | |
+| ion-c-sys-0.4.13 | `bidgen` generates deref of null pointers | |
+| nlprule-build-0.6.4 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| cubeb-core-0.9.0 | | |
+| sparkpost-0.5.4 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| timeago-0.3.0 | `siphasher` | |
+| nj-sys-3.0.0 | `bindgen` generates deref of null pointers | |
+| pool-0.1.4 | | |
+| fnm-1.29.2 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| burst-0.0.2 | | |
+| libinchi-sys-0.1.0 | `bindgen` generates deref of null pointers | |
+| xxhash-c-sys-0.8.1 | `bindgen` generates deref of null pointers | |
+| ross-config-2.24.0 | Incorrect `assume_init` | |
+| bastion-0.4.5 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| mikktspace-0.2.0 | `nalgebra` | |
+| ddoresolver-rs-0.4.2 | `smallvec` | |
+| urlshortener-3.0.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| typos-0.8.5 | `stdarch` | |
+| nu_plugin_selector-0.43.0 | `tendril` | |
+| nu_plugin_xpath-0.43.0 | `sxd-document` | |
+| xh-0.15.0 | `http` | |
+| djangohashers-1.5.3 | | |
+| cacache-10.0.0 | `generic-array` | |
+| strcursor-0.2.5 | Out-of-bounds offset | |
+| trailer-0.1.2 | Read of padding bytes | |
+| aes-stream-0.2.1 | Use of `mem::uninitialized` | |
+| may-0.3.20 | `generator` | |
+| seshat-2.3.3 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| aws-sdk-ecs-0.6.0 | `http` | |
+| erfa-sys-0.1.2 | `bindgen` generates deref of null pointers | |
+| libtelnet-rs-2.0.0 | `bytes` | |
+| cht-0.5.0 | `crossbeam-epoch` | |
+| apint-0.2.0 | | |
+| hashconsing-1.5.0 | `rayon` | |
+| swiftnav-sys-0.7.0 | `bindgen` generates deref of null pointers | |
+| coordgen-0.2.1 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| alloc-from-pool-1.0.4 | `& -> &mut` | |
+| sequoia-ipc-0.27.0 | `sha1collisiondetection` | |
+| rslint_parser-0.3.1 | `rslint_rowan` | |
+| cfn-guard-2.0.4 | `nom_locate` | |
+| tor-dirclient-0.0.3 | `bytes` | |
+| itermore-0.2.0 | | |
+| xoodoo-0.1.0 | `stdarch` | |
+| microkelvin-0.10.3 | | |
+| dioxus-core-0.1.9 | `bumpalo` | |
+| soup-0.5.1 | `html5ever` | |
+| snmp-0.2.2 | Use of `mem::uninitialized` | |
+| glm-0.2.3 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| dahl-salso-0.6.6 | | |
+| mempool-0.3.1 | | |
+| crony-0.2.2 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| rslint_rowan-0.10.0 | int-to-pointer cast | |
+| a2-0.6.2 | `bytes` | |
+| wg-0.2.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| aws-sdk-kms-0.6.0 | `http` | |
+| cogo-0.1.30 | `generator` | |
+| biosphere-0.2.1 | `ndarray` | |
+| ntex-redis-0.3.1 | Incorrect `assume_init` | |
+| gbm-sys-0.2.0 | `bindgen` generates deref of null pointers | |
+| gotham_middleware_diesel-0.4.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| dimensioned-0.7.0 | `generic-array` | |
+| emacs_module-0.18.0 | `bindgen` generates deref of null pointers | |
+| libinjection-0.2.4 | `bindgen` generates deref of null pointers | |
+| tower-web-0.3.7 | `bytes` | |
+| pdf-writer-0.4.1 | Old version of `itoa` | |
+| simple_moving_average-0.1.2 | `rayon` | |
+| ic-kit-0.4.3 | | |
+| staticvec-0.11.2 | `copy` invalidation| |
+| enum-flags-0.1.8 | Constructing an invalid enum | |
+| rcu_cell-0.1.10 | | |
+| smolscale-0.3.16 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
+| minstant-0.1.1 | Incorrect `assume_init` | |
+| rasn-cms-0.5.0 | `bytes` | |
+| nshare-0.8.0 | `ndarray` | |
