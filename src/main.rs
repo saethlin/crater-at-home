@@ -5,7 +5,13 @@ use rustwide::{
     cmd::{Command, SandboxBuilder},
     logging, Toolchain, WorkspaceBuilder,
 };
-use std::{fs, path::PathBuf, time::Duration};
+use std::{
+    collections::HashMap,
+    fs::{self, File},
+    io::Write,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -23,6 +29,15 @@ struct Args {
     timeout_minutes: u64,
 }
 
+#[derive(Debug)]
+struct Krate {
+    name: String,
+    recent_downloads: Option<u64>,
+    version: String,
+    cause: String,
+    status: String,
+}
+
 fn main() {
     let tag_re = Regex::new(r"<\d+>").unwrap();
 
@@ -33,14 +48,41 @@ fn main() {
 
     let args = Args::parse();
 
+    let mut crates = HashMap::new();
+
+    for line in std::fs::read_to_string("README.md")
+        .unwrap()
+        .lines()
+        .filter(|line| line.bytes().filter(|b| *b == b'|').count() == 4)
+        .skip(2)
+    {
+        let line = line.trim();
+        let mut it = line.split('|').skip(1);
+        let n_it = it.next().unwrap().trim();
+        let name = n_it.split(' ').nth(0).unwrap().to_string();
+        let version = n_it.split(' ').nth(1).unwrap().to_string();
+        let cause = it.next().unwrap().trim().to_string();
+        let status = it.next().unwrap().trim().to_string();
+
+        crates.insert(
+            name.clone(),
+            Krate {
+                name,
+                recent_downloads: None,
+                version,
+                cause,
+                status,
+            },
+        );
+    }
+
     let client = SyncClient::new(
         "miri (kimockb@gmail.com)",
         std::time::Duration::from_millis(1000),
     )
     .unwrap();
 
-    let mut crates = Vec::new();
-
+    log::info!("Discovering crates...");
     let mut page = 1;
     while crates.len() < args.crates {
         let mut query = CratesQuery::builder()
@@ -51,15 +93,41 @@ fn main() {
 
         let response = client.crates(query).unwrap();
 
-        crates.extend(
-            response
-                .crates
-                .into_iter()
-                .take(args.crates - crates.len())
-                .map(|c| (c.name, c.max_version)),
-        );
+        for c in response.crates.into_iter().take(args.crates - crates.len()) {
+            crates.insert(
+                c.name.clone(),
+                Krate {
+                    name: c.name,
+                    recent_downloads: c.recent_downloads,
+                    version: c.max_version,
+                    cause: String::new(),
+                    status: String::new(),
+                },
+            );
+        }
+
+        log::info!("{} of {}", crates.len(), args.crates);
+
         page += 1;
     }
+
+    log::info!("Loading missing metadaata...");
+    for (k, krate) in crates.values_mut().enumerate() {
+        if krate.recent_downloads.is_none() {
+            krate.recent_downloads = client
+                .get_crate(&krate.name)
+                .unwrap()
+                .crate_data
+                .recent_downloads;
+            assert!(krate.recent_downloads.is_some());
+            log::info!("{} of {}", k, args.crates);
+        }
+    }
+
+    let mut crates = crates.into_iter().map(|pair| pair.1).collect::<Vec<_>>();
+
+    // Sort by recent downloads, descending
+    crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
 
     let build_path = args
         .build_dir
@@ -74,19 +142,22 @@ fn main() {
         tc.uninstall(&workspace).unwrap();
     }
 
-    let nightly = Toolchain::dist("nightly-2022-02-17");
+    let nightly = Toolchain::dist("nightly-2022-02-23");
 
     nightly.install(&workspace).unwrap();
     nightly.add_component(&workspace, "rust-src").unwrap();
     nightly.add_component(&workspace, "miri").unwrap();
 
-    nightly
-        .add_target(&workspace, "x86_64-unknown-linux-musl")
-        .unwrap();
-    Command::new(&workspace, nightly.cargo())
-        .args(&["install", "xargo", "--target=x86_64-unknown-linux-musl"])
-        .run()
-        .unwrap();
+    if !Path::exists(&build_path.join("cargo-home/bin/cargo/xargo")) {
+        nightly
+            .add_target(&workspace, "x86_64-unknown-linux-musl")
+            .unwrap();
+        Command::new(&workspace, nightly.cargo())
+            .args(&["install", "xargo", "--target=x86_64-unknown-linux-musl"])
+            .run()
+            .unwrap();
+    }
+
     Command::new(&workspace, nightly.cargo())
         .env("CARGO", build_path.join("cargo-home/bin/cargo"))
         .env("CARGO_HOME", build_path.join("cargo-home"))
@@ -105,11 +176,40 @@ fn main() {
     fs::create_dir_all("success").unwrap();
     fs::create_dir_all("failure").unwrap();
 
-    for (crate_name, crate_version) in crates {
-        let current_crate = rustwide::Crate::crates_io(&crate_name, &crate_version);
+    let mut previously_run = Vec::new();
+    for name in fs::read_dir("success")
+        .unwrap()
+        .chain(fs::read_dir("failure").unwrap())
+    {
+        let name = name.unwrap();
+        for file in fs::read_dir(name.path()).unwrap() {
+            let file = file.unwrap();
+            let name = name.file_name().into_string().unwrap();
+            let version = file.file_name().into_string().unwrap();
+            previously_run.push((name, version));
+        }
+    }
+
+    let mut out = File::create("output").unwrap();
+
+    for krate in crates.iter_mut() {
+        if previously_run
+            .iter()
+            .any(|(name, version)| &krate.name == name && &krate.version == version)
+        {
+            log::info!("Already ran {} {}", krate.name, krate.version);
+            continue;
+        }
+
+        // Clean the build dirs often, they grow constantly and will eventually run the system out
+        // of disk space. The cached downloads do not grow large enough to be worth dumping
+        // entirely.
+        workspace.purge_all_build_dirs().unwrap();
+
+        let current_crate = rustwide::Crate::crates_io(&krate.name, &krate.version);
 
         if current_crate.fetch(&workspace).is_err() {
-            log::error!("Unable to fetch {}-{}", crate_name, crate_version);
+            log::error!("Unable to fetch {} {}", krate.name, krate.version);
             continue;
         }
 
@@ -145,8 +245,9 @@ fn main() {
         });
         let mut output = storage.to_string();
         if res.is_ok() {
+            fs::create_dir_all(format!("success/{}", krate.name)).unwrap();
             fs::write(
-                format!("success/{}-{}", crate_name, crate_version),
+                format!("success/{}/{}", krate.name, krate.version),
                 output.as_bytes(),
             )
             .unwrap();
@@ -192,10 +293,23 @@ fn main() {
             output = storage.to_string();
         }
 
+        fs::create_dir_all(format!("failure/{}", krate.name)).unwrap();
         fs::write(
-            format!("failure/{}-{}", crate_name, crate_version),
+            format!("failure/{}/{}", krate.name, krate.version),
             output.as_bytes(),
         )
         .unwrap();
+
+        if output.contains("Undefined Behavior") {
+            out.write_all(
+                format!(
+                    "| {} | {} | {} | {} |\n",
+                    krate.name, krate.version, krate.cause, krate.status
+                )
+                .as_bytes(),
+            )
+            .unwrap();
+            out.flush().unwrap();
+        }
     }
 }
