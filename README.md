@@ -46,13 +46,12 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | tracing-opentelemetry 0.16.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
 | beef 0.5.1 | | |
 | futures-timer 3.0.2 | int-to-pointer cast (should use `AtomicPtr`) | |
-| base-x 0.2.8 | | |
-| lalrpop 0.19.7 | | |
+| base-x 0.2.8 | `json` | |
+| lalrpop 0.19.7 | `string_cache` | |
 | rusoto_credential 0.47.0 | `http` | |
-| buf_redux 0.8.4 | | |
+| buf_redux 0.8.4 | Use of uninitialized memory | |
 | tokio-io 0.1.13 | Miri defect | https://github.com/rust-lang/unsafe-code-guidelines/issues/72 |
-| ascii 1.0.0 | | |
-| block-modes 0.8.1 | | |
+| ascii 1.0.0 | `as_ptr` -> `from_raw_parts_mut` | |
 | twox-hash 1.6.2 | `stdarch` | |
 | cranelift-wasm 0.80.0 | `& -> &mut` | |
 | lexical 6.0.1 | `lexical-write-float` | |
@@ -66,40 +65,40 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | rgb 0.8.31 | `& -> &mut` | |
 | tokio-current-thread 0.1.7 | Converts 0x10 into a pointer | |
 | json 0.12.4 | Self-referential structure | |
-| sized-chunks 0.6.5 | | |
+| sized-chunks 0.6.5 | &mut invalidation | |
 | asynchronous-codec 0.6.0 | `bytes` | |
-| heapless 0.7.10 | | |
+| heapless 0.7.10 | &mut invalidation | |
 | futures-intrusive 0.4.0 | | |
-| rust-argon2 1.0.0 | | |
+| rust-argon2 1.0.0 | Creating aliased &mut | |
 | futures-cpupool 0.1.8 | Miri defect | https://github.com/rust-lang/unsafe-code-guidelines/issues/72 |
 | alloc-no-stdlib 2.0.3 | Read of uninitialized memory in test | https://github.com/dropbox/rust-alloc-no-stdlib/issues/12 |
 | markup5ever 0.10.1 | `string_cache` | |
-| prettytable-rs 0.8.0 | | |
+| prettytable-rs 0.8.0 | Explicitly converting &T to &mut T | |
 | alloc-stdlib 0.2.1 | Read of uninitialized memory in test | https://github.com/dropbox/rust-alloc-no-stdlib/issues/12 |
 | tokio-codec 0.1.2 | `bytes` 0.4.12 uses `mem::uninitialized` | |
 | attohttpc 0.18.0 | `http` | |
-| wasm-timer 0.2.5 | | |
+| wasm-timer 0.2.5 | int-to-pointer cast | |
 | cortex-m 0.7.4 | Miri defect (access of a platform-specific address) | |
 | if_rust_version 1.0.0 | Uses `mem::uninitialized` in doctest as an example | |
 | malloc_buf 1.0.0 | Misaligned pointer, `*mut -> & -> &mut -> &mut` | |
-| str-buf 2.0.4 | | |
+| str-buf 2.0.4 | & -> *mut write | |
 | opentelemetry-http 0.6.0 | `http` | |
 | android_logger 0.10.1 | Use of `mem::uninitialized` | |
 | selectors 0.23.0 | `cssparser` | |
 | sluice 0.5.5 | | |
-| rkyv 0.7.31 | | |
+| rkyv 0.7.35 | &mut invalidation | |
 | ash 0.35.1+1.2.203 | `bindgen` generates deref of null pointers | |
 | libp2p-relay 0.6.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
 | libp2p-gossipsub 0.35.0 | `bytes` | |
 | perf-event-open-sys 1.0.1 | `bindgen` generates deref of null pointers | |
-| dlmalloc 0.2.3 | | |
-| field-offset 0.3.4 | | |
-| thin-slice 0.1.1 | | |
+| dlmalloc 0.2.3 | `get_unchecked_mut` + unnecessary reborrow | |
+| field-offset 0.3.4 | int-to-pointer cast | |
+| thin-slice 0.1.1 | int-to-pointer cast | |
 | servo_arc 0.1.1 | 0x8 is not a valid pointer | |
-| wgpu-core 0.12.2 | | |
+| wgpu-core 0.12.2 | `smallvec` | |
 | safe_arch 0.6.0 | `stdarch` | |
 | bytes-utils 0.1.1 | `bytes` | |
-| sled 0.34.7 | | |
+| sled 0.34.7 | fattening pointer through a conversion that removes provenance | |
 | loom 0.5.4 | `generator` | |
 | generator 0.7.0 | Incorrect `assume_init` | |
 | rend 0.3.6 | Attempt to construct invalid `char` | |
@@ -114,13 +113,12 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | aws-smithy-async 0.36.0 | `tokio` | |
 | aws-endpoint 0.6.0 | `bytes` | |
 | aws-sig-auth 0.6.0 | `bytes` | |
-| intervalier 0.4.0 | ICE? | |
-| pdqselect 0.1.1 | | |
+| pdqselect 0.1.1 | `ptr::copy` via `get_unchecked_mut` | |
 | rustler_sys 2.1.1 | Constructing a slice from a null pointer | |
 | odds 0.4.0 | reference coercion in copy | |
 | wee_alloc 0.4.5 | Dereference of null pointer | |
 | v_escape 0.18.0 | | |
-| capnp 0.14.5 | | |
+| capnp 0.14.5 | cast + offset of self past the end of Self | |
 | async-graphql-value 3.0.27 | | |
 | boxfnonce 0.1.1 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
 | rustc-rayon-core 0.3.2 | int-to-pointer cast | |
@@ -128,7 +126,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | wasmer 2.2.0-rc1 | Wrong calling convention | |
 | v_htmlescape 0.14.1 | | |
 | zmq-sys 0.11.0 | `bindgen` generates deref of null pointers | |
-| cgmath 0.18.0 | | |
+| cgmath 0.18.0 | &mut invalidation | |
 | c_linked_list 1.1.1 | | |
 | windows_reader 0.30.0 | | |
 | r2d2_sqlite 0.19.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
@@ -137,7 +135,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | fallible_collections 0.4.4 | Construction of a too-large slice | |
 | loopdev 0.4.0 | `bindgen` generates deref of null pointers | |
 | freetype 0.7.0 | `bindgen` generates deref of null pointers | |
-| owned-alloc 0.2.0 | | |
+| owned-alloc 0.2.0 | as_ptr() -> &mut | |
 | smallstr 0.2.0 | | |
 | rstar 0.8.4 | `pdqselect` | |
 | tower-util 0.3.1 | `futures_util` | |
@@ -154,10 +152,10 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | rulinalg 0.4.2 | Use of `mem::uninitialized` | |
 | intrusive-collections 0.9.3 | | |
 | lru_time_cache 0.11.11 | | |
-| binary-heap-plus 0.4.1 | | |
+| binary-heap-plus 0.4.1 | `get_unchecked_mut` invalidation | |
 | httptest 0.15.4 | `bytes` | |
 | http-serde 1.0.3 | `http` | |
-| r0 1.0.0 | | |
+| r0 1.0.0 | &mut arr[0] provenance | |
 | spinning 0.1.0 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
 | packed_struct 0.10.0 | `bitvec` | |
 | jod-thread 0.1.2 | Miri defect | https://github.com/rust-lang/miri/issues/1717 |
@@ -169,9 +167,8 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | typed-index-collections 3.0.3 | | |
 | rustc-ap-rustc_index 727.0.0 | `arrayvec` | |
 | axum-core 0.1.1 | `http` | |
-| rustc-ap-rustc_arena 727.0.0 | | |
 | aws-smithy-eventstream 0.36.0 | `bytes` | |
-| triggered 0.1.2 | | |
+| triggered 0.1.2 | Reborrowing pointer through &, removing SRW | |
 | wasm-bindgen-wasm-interpreter 0.2.79 | `& -> &mut` | |
 | safe-transmute 0.11.2 | misaligned pointer | |
 | libparted-sys 0.3.1 | `bindgen` generates deref of null pointers | |
@@ -203,12 +200,12 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | dprint-swc-ecma-ast-view 0.48.2 | `bumpalo` | |
 | dprint-core 0.50.0 | `bumpalo` | |
 | tauri-utils 1.0.0-beta.3 | `html5ever` | |
-| triomphe 0.1.5 | | |
-| cryptoxide 0.4.1 | | |
+| triomphe 0.1.5 | provenance | |
+| cryptoxide 0.4.1 | get_unchecked(0) instead of as_ptr | |
 | futures-batch 0.6.0 | `tokio` | |
 | cmac 0.6.0 | `stdarch` | |
 | bevy-glsl-to-spirv 0.2.1 | `bindgen` generates deref of null pointers | |
-| linked_list_allocator 0.9.1 | | |
+| linked_list_allocator 0.9.1 | int-to-ptr cast | |
 | nvml-wrapper-sys 0.5.0 | `bindgen` generates deref of null pointers | |
 | garando_syntax 0.1.0 | Out of bounds `get_unchecked` | |
 | dprint-plugin-typescript 0.62.1 | `string_cache` | |
@@ -250,7 +247,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | boring-sys 2.0.0 | `bindgen` generates deref of null pointers | |
 | tryhard 0.4.0 | `tokio` | |
 | flurry 0.3.1 | `crossbeam_epoch` | |
-| triple_accel 0.4.0 | | |
+| triple_accel 0.4.0 | Incorrect layout on deallocation | |
 | vfio-bindings 0.3.1 | `bindgen` generates deref of null pointers | |
 | serde_tokenstream 0.1.3 | | |
 | primordial 0.4.0 | | |
@@ -325,7 +322,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | boring 2.0.0 | Use of `mem::uninitialized` | |
 | scraper 0.12.0 | `tendril` | |
 | sdl2-sys 0.35.1 | `bindgen` generates deref of null pointers | |
-| remoteprocess 0.4.8 | | |
+| remoteprocess 0.4.8 | Misaligned pointer | |
 | geo 0.18.0 | `pdqselect` | |
 | grep-searcher 0.1.8 | `bstr` | |
 | kuchiki 0.8.1 | `html5ever` | |
@@ -379,7 +376,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | sqlite3-sys 0.13.0 | `temporary` | |
 | miniz_oxide_c_api 0.3.0 | | |
 | domain 0.6.1 | `as_ptr -> &mut` | |
-| crt0stack 0.1.0 | | |
+| crt0stack 0.1.0 | Out of bounds offset | |
 | lambda_http 0.4.1 | `http` | |
 | order-stat 0.1.3 | | |
 | target_build_utils 0.3.1 | `siphasher` | |
@@ -387,7 +384,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | dssim-core 3.1.0 | `rayon` | |
 | html2md 0.2.13 | `tendril` | |
 | rust-gmp-kzen 0.5.1 | Use of `mem::uninitialized` | |
-| flatdata 0.5.3 | | |
+| flatdata 0.5.3 | Incompatible item is protected | |
 | dssim 3.1.2 | `rayon` | |
 | kvm-bindings 0.5.0 | `bindgen` generates deref of null pointers | |
 | rapier3d 0.12.0-alpha.1 | | |
@@ -420,7 +417,7 @@ If it seems like there's a crate here that shouldn't be, it's possible the list 
 | moka-cht 0.4.2 | | |
 | curv-kzen 0.9.0 | Use of `mem::uninitialized` | |
 | cosmrs 0.4.1 | `bytes` | |
-| pen-ffi 0.3.39 | | |
+| pen-ffi 0.3.39 | Incorrect layout on deallocation | |
 | skim 0.9.4 | `beef` | |
 | cuda-driver-sys 0.3.0 | `bindgen` generates deref of null pointers | |
 | sw-composite 0.7.14 | `stdarch` | |

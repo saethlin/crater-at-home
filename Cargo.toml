@@ -10,5 +10,9 @@ env_logger = "0.9.0"
 git2 = { version = "0.13.25", features = ["vendored-libgit2", "vendored-openssl"] }
 log = "0.4.14"
 regex = "1.5.4"
-rustwide = { git = "https://github.com/saethlin/rustwide" }
+# rustwide = { git = "https://github.com/saethlin/rustwide", features = ["unstable-toolchain-ci"] }
+rustwide = { path = "../rustwide", features = ["unstable-toolchain-ci"] }
 tempfile = "3.3.0"
+serde_json = "1"
+serde = "1"
+aws-sdk-s3 = "0.8"
