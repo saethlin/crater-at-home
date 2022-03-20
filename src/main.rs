@@ -46,9 +46,6 @@ enum Status {
     UB { cause: String, status: String },
 }
 
-const HEADER: &str = r#"<html><body><pre style="word-wrap: break-word; white-space: pre-wrap;">\n"#;
-const FOOTER: &str = "\n</pre></body></html>";
-
 fn main() {
     let tag_re = Regex::new(r"<\d+>").unwrap();
 
@@ -252,14 +249,9 @@ fn main() {
                     Ok(())
                 })
         });
-        let mut output = format!("{}{}{}", HEADER, storage.to_string(), FOOTER);
+        let mut output = storage.to_string();
         if res.is_ok() {
-            fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
-            fs::write(
-                format!("logs/{}/{}.html", krate.name, krate.version),
-                output.as_bytes(),
-            )
-            .unwrap();
+            write_crate_output(&krate, &output);
             krate.status = Status::Passing;
             write_output(&crates);
             continue;
@@ -310,7 +302,7 @@ fn main() {
                     })
             });
             assert!(!res.is_ok()); // Assert that we failed with the tag tracking on
-            output = format!("{}{}{}", HEADER, storage.to_string(), FOOTER);
+            output = storage.to_string();
 
             // Re-diagnose the problem
             krate.status = Status::UB {
@@ -319,15 +311,25 @@ fn main() {
             };
         }
 
-        fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
-        fs::write(
-            format!("logs/{}/{}.html", krate.name, krate.version),
-            output.as_bytes(),
-        )
-        .unwrap();
-
+        write_crate_output(&krate, &output);
         write_output(&crates);
     }
+}
+
+fn write_crate_output(krate: &Krate, output: &str) {
+    fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
+    let mut file = File::create(format!("logs/{}/{}.html", krate.name, krate.version)).unwrap();
+    write!(
+        file,
+        "<html>\n\
+        <head><title>{} {}</title></head>\n\
+        <body><pre style=\"word-wrap: break-word; white-space: pre-wrap;\">\n\
+        {}\n\
+        </pre></body>\n\
+        </html>",
+        krate.name, krate.version, output
+    )
+    .unwrap();
 }
 
 const OUTPUT_HEADER: &str = r#"<style>
