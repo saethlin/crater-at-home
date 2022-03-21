@@ -200,15 +200,16 @@ fn main() {
 
         assert!(res.stderr.is_empty()); // The container is supposed to redirect everything to stdout
 
-        if res.status.success() {
+        let status = build.wait().unwrap();
+        if status.success() {
             krate.status = Status::Passing;
         } else if output.contains("Undefined Behavior: ") {
-            krate.status = Status::Error(String::new());
-        } else {
             krate.status = Status::UB {
                 cause: String::new(), //diagnose(&output),
                 status: String::new(),
             };
+        } else {
+            krate.status = Status::Error(String::new());
         }
 
         write_crate_output(&krate, &output);
@@ -303,7 +304,7 @@ fn write_output(crates: &[Crate]) {
             Status::Unknown => write!(output, "Unknown"),
             Status::Passing => write!(output, "Passing"),
             Status::Error(_) => write!(output, "Error"),
-            Status::UB { cause, .. } => write!(output, "{}", cause),
+            Status::UB { cause, .. } => write!(output, "UB: {}", cause),
         }
         .unwrap();
         writeln!(output, "</div></div>").unwrap();
