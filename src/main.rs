@@ -1,17 +1,11 @@
 use clap::Parser;
 use crates_io_api::{CratesQuery, Sort, SyncClient};
-use regex::Regex;
-use rustwide::{
-    cmd::{Command, SandboxBuilder},
-    logging, Toolchain, WorkspaceBuilder,
-};
 use std::{
     collections::hash_map::Entry,
     collections::HashMap,
     fs::{self, File},
     io::Write,
-    path::{Path, PathBuf},
-    time::Duration,
+    path::Path,
 };
 
 #[derive(Parser)]
@@ -19,9 +13,6 @@ use std::{
 struct Args {
     #[clap(long)]
     crates: usize,
-
-    #[clap(long)]
-    build_dir: Option<PathBuf>,
 
     #[clap(long, default_value_t = 63)]
     memory_limit_gb: usize,
@@ -31,7 +22,7 @@ struct Args {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-struct Krate {
+struct Crate {
     name: String,
     recent_downloads: Option<u64>,
     version: String,
@@ -47,12 +38,10 @@ enum Status {
 }
 
 fn main() {
-    let tag_re = Regex::new(r"<\d+>").unwrap();
-
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info");
     }
-    logging::init_with(env_logger::Logger::from_default_env());
+    env_logger::init();
 
     let args = Args::parse();
 
@@ -60,7 +49,7 @@ fn main() {
 
     if Path::new("crates.json").exists() {
         for line in fs::read_to_string("crates.json").unwrap().lines() {
-            let krate: Krate = serde_json::from_str(&line).unwrap();
+            let krate: Crate = serde_json::from_str(&line).unwrap();
             crates.insert(krate.name.clone(), krate);
         }
     }
@@ -88,7 +77,7 @@ fn main() {
                     if o.get().version == c.max_version {
                         o.get_mut().recent_downloads = c.recent_downloads;
                     } else {
-                        o.insert(Krate {
+                        o.insert(Crate {
                             name: c.name,
                             recent_downloads: c.recent_downloads,
                             version: c.max_version,
@@ -97,7 +86,7 @@ fn main() {
                     }
                 }
                 Entry::Vacant(v) => {
-                    v.insert(Krate {
+                    v.insert(Crate {
                         name: c.name,
                         recent_downloads: c.recent_downloads,
                         version: c.max_version,
@@ -130,59 +119,6 @@ fn main() {
     // Sort by recent downloads, descending
     crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
 
-    let build_path = args
-        .build_dir
-        .unwrap_or_else(|| tempfile::tempdir().unwrap().into_path());
-
-    let workspace = WorkspaceBuilder::new(&build_path, "miri").init().unwrap();
-
-    if !Path::exists(&build_path.join("cargo-home/bin/xargo")) {
-        let tc = workspace.installed_toolchains().unwrap()[0].clone();
-        tc.add_target(&workspace, "x86_64-unknown-linux-musl")
-            .unwrap();
-        Command::new(&workspace, tc.cargo())
-            .args(&["install", "xargo", "--target=x86_64-unknown-linux-musl"])
-            .run()
-            .unwrap();
-    }
-
-    workspace.purge_all_build_dirs().unwrap();
-    workspace.purge_all_caches().unwrap();
-
-    let toolchain = Toolchain::ci("e95b10ba4ac4564ed25f7eef143e3182c33b3902", false);
-    toolchain.install(&workspace).unwrap();
-
-    Toolchain::dist("stable").uninstall(&workspace).unwrap();
-
-    Command::new(&workspace, toolchain.cargo())
-        .args(&[
-            "install",
-            "--git",
-            "https://github.com/saethlin/miri",
-            "--branch=track-alloc-history",
-            "--force",
-            "--target=x86_64-unknown-linux-musl",
-            "miri",
-            "cargo-miri",
-        ])
-        .run()
-        .unwrap();
-
-    Command::new(&workspace, toolchain.cargo())
-        .env("CARGO", build_path.join("cargo-home/bin/cargo"))
-        .env("CARGO_HOME", build_path.join("cargo-home"))
-        .env("XDG_CACHE_HOME", build_path.join("cache"))
-        .args(&["miri", "setup"])
-        .run()
-        .unwrap();
-
-    let sandbox = SandboxBuilder::new()
-        .memory_limit(Some(1024 * 1024 * 1024 * args.memory_limit_gb))
-        .cpu_limit(None)
-        .enable_networking(true);
-
-    let mut build_dir = workspace.build_dir("miri");
-
     fs::create_dir_all("logs").unwrap();
 
     let mut previously_run = Vec::new();
@@ -191,7 +127,13 @@ fn main() {
         for file in fs::read_dir(name.path()).unwrap() {
             let file = file.unwrap();
             let name = name.file_name().into_string().unwrap();
-            let version = file.file_name().into_string().unwrap();
+            let version = file
+                .file_name()
+                .into_string()
+                .unwrap()
+                .strip_suffix(".html")
+                .unwrap()
+                .to_string();
             previously_run.push((name, version));
         }
     }
@@ -207,65 +149,73 @@ fn main() {
             continue;
         }
 
-        // Clean the build dirs often, they grow constantly and will eventually run the system out
-        // of disk space. The cached downloads do not grow large enough to be worth dumping
-        // entirely.
-        workspace.purge_all_build_dirs().unwrap();
-
-        let current_crate = rustwide::Crate::crates_io(&krate.name, &krate.version);
-
-        if current_crate.fetch(&workspace).is_err() {
-            log::error!("Unable to fetch {} {}", krate.name, krate.version);
-            continue;
-        }
-
-        let storage = logging::LogStorage::new(log::LevelFilter::Debug);
+        log::info!("Running {} {}", krate.name, krate.version);
 
         let miri_flags =
-            "-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-check-number-validity \
+            "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-check-number-validity \
              -Zmiri-panic-on-unsupported";
 
-        let res = logging::capture(&storage, || {
-            build_dir
-                .build(&toolchain, &current_crate, sandbox.clone())
-                .run(|build| {
-                    build
-                        .cargo()
-                        .env("XARGO_CHECK", "/opt/rustwide/cargo-home/bin/xargo")
-                        .env("XDG_CACHE_HOME", build_path.join("cache"))
-                        .env("RUSTFLAGS", "-Zrandomize-layout")
-                        .env("RUST_BACKTRACE", "0")
-                        .env("MIRIFLAGS", miri_flags)
-                        .args(&[
-                            "miri",
-                            "test",
-                            "--jobs=1",
-                            "--no-fail-fast",
-                            "--",
-                            "--test-threads=1",
-                        ])
-                        .timeout(Some(Duration::from_secs(60 * args.timeout_minutes)))
-                        .run()?;
-                    Ok(())
-                })
-        });
-        let mut output = storage.to_string();
-        if res.is_ok() {
-            write_crate_output(&krate, &output);
-            krate.status = Status::Passing;
-            write_output(&crates);
-            continue;
+        let container_id = std::process::Command::new("docker")
+            .args(&[
+                "create",
+                "-e",
+                "RUSTFLAGS=-Zrandomize-layout",
+                "-e",
+                "RUST_BACKTRACE=0",
+                "-e",
+                miri_flags,
+                "miri:latest",
+                &format!("{}=={}", krate.name, krate.version),
+            ])
+            .output()
+            .unwrap()
+            .stdout;
+        let container_id = String::from_utf8(container_id).unwrap().trim().to_string();
+
+        let mut build = std::process::Command::new("docker")
+            .args(&["start", "-a", &container_id])
+            .spawn()
+            .unwrap();
+
+        for _ in 0..(15 * 60) {
+            if build.try_wait().unwrap().is_some() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_secs(1));
         }
 
-        krate.status = Status::Error(String::new());
+        std::process::Command::new("docker")
+            .args(&["stop", &container_id])
+            .status()
+            .unwrap();
 
-        if output.contains("Undefined Behavior: ") {
+        log::info!("{} {} completed", krate.name, krate.version);
+
+        let res = std::process::Command::new("docker")
+            .args(&["logs", &container_id])
+            .output()
+            .unwrap();
+
+        let output = String::from_utf8_lossy(&res.stdout);
+
+        assert!(res.stderr.is_empty()); // The container is supposed to redirect everything to stdout
+
+        if res.status.success() {
+            krate.status = Status::Passing;
+        } else if output.contains("Undefined Behavior: ") {
+            krate.status = Status::Error(String::new());
+        } else {
             krate.status = Status::UB {
                 cause: String::new(), //diagnose(&output),
                 status: String::new(),
             };
         }
 
+        write_crate_output(&krate, &output);
+        write_output(&crates);
+
+        /*
+        let tag_re = regex::Regex::new(r"<\d+>").unwrap();
         let tag = output
             .lines()
             .find(|line| line.contains("Undefined Behavior"))
@@ -277,46 +227,12 @@ fn main() {
             let tag = tag.as_str();
             let tag = &tag[1..tag.len() - 1];
             let miri_flags = format!("{} -Zmiri-track-pointer-tag={}", miri_flags, tag);
-            let res = logging::capture(&storage, || {
-                build_dir
-                    .build(&toolchain, &current_crate, sandbox.clone())
-                    .run(|build| {
-                        build
-                            .cargo()
-                            .env("XARGO_CHECK", "/opt/rustwide/cargo-home/bin/xargo")
-                            .env("XDG_CACHE_HOME", build_path.join("cache"))
-                            .env("RUSTFLAGS", "-Zrandomize-layout")
-                            .env("RUST_BACKTRACE", "0")
-                            .env("MIRIFLAGS", miri_flags)
-                            .args(&[
-                                "miri",
-                                "test",
-                                "--jobs=1",
-                                "--no-fail-fast",
-                                "--",
-                                "--test-threads=1",
-                            ])
-                            .timeout(Some(Duration::from_secs(60 * args.timeout_minutes)))
-                            .run()?;
-                        Ok(())
-                    })
-            });
-            assert!(!res.is_ok()); // Assert that we failed with the tag tracking on
-            output = storage.to_string();
-
-            // Re-diagnose the problem
-            krate.status = Status::UB {
-                cause: String::new(), //diagnose(&output),
-                status: String::new(),
-            };
         }
-
-        write_crate_output(&krate, &output);
-        write_output(&crates);
+        */
     }
 }
 
-fn write_crate_output(krate: &Krate, output: &str) {
+fn write_crate_output(krate: &Crate, output: &str) {
     fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
     let mut file = File::create(format!("logs/{}/{}.html", krate.name, krate.version)).unwrap();
     write!(
@@ -364,7 +280,7 @@ const OUTPUT_HEADER: &str = r#"<style>
 <body>
 <div class="page">"#;
 
-fn write_output(crates: &[Krate]) {
+fn write_output(crates: &[Crate]) {
     let mut output = File::create(".crates.json").unwrap();
 
     for c in crates {
@@ -378,7 +294,7 @@ fn write_output(crates: &[Krate]) {
     for c in crates {
         write!(
             output,
-            "<div class=\"row\"><div class=\"crate\"><a href=\"{}/{}.html\">{} {}</a></div>",
+            "<div class=\"row\"><div class=\"crate\"><a href=\"logs/{}/{}.html\">{} {}</a></div>",
             c.name, c.version, c.name, c.version
         )
         .unwrap();
@@ -452,5 +368,55 @@ fn diagnose(output: &str) -> String {
 
     causes.sort();
     causes.dedup();
+}
+*/
+
+/*
+const CRATES_ROOT: &str = "https://static.crates.io/crates";
+
+lazy_static::lazy_static! {
+    static ref CLIENT: ureq::Agent = ureq::Agent::new();
+}
+
+use flate2::read::GzDecoder;
+use tar::Archive;
+
+impl Crate {
+    fn fetch_url(&self) -> String {
+        format!(
+            "{0}/{1}/{1}-{2}.crate",
+            CRATES_ROOT, self.name, self.version
+        )
+    }
+
+    fn fetch(&self) -> Result<(), Box<dyn std::error::Error>> {
+        std::env::set_current_dir("/")?;
+        std::fs::remove_dir_all("/build")?;
+        std::fs::create_dir_all("/build")?;
+        std::env::set_current_dir("/build")?;
+
+        let path = Path::new("/build");
+
+        let body = CLIENT.get(&self.fetch_url()).call()?.into_reader();
+        let mut archive = Archive::new(GzDecoder::new(body));
+
+        let entries = archive.entries()?;
+        for entry in entries {
+            let mut entry = entry?;
+            let relpath = {
+                let path = entry.path()?;
+                path.into_owned()
+            };
+            let mut components = relpath.components();
+            // Throw away the first path component
+            components.next();
+            let full_path = path.join(&components.as_path());
+            if let Some(parent) = full_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            entry.unpack(&full_path)?;
+        }
+        Ok(())
+    }
 }
 */
