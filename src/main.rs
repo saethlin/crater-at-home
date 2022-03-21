@@ -259,7 +259,6 @@ const OUTPUT_HEADER: &str = r#"<style>
     }
     a {
         color: #eee;
-        text-decoration: none;
     }
     .row {
         display: flex;
@@ -269,9 +268,11 @@ const OUTPUT_HEADER: &str = r#"<style>
     }
     .crate {
         flex: 1;
+        flex-basis: 50%;
     }
     .status {
         flex: 2;
+        flex-basis: 50%;
     }
     .page {
         width: 40em;
