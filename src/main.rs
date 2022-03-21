@@ -241,10 +241,11 @@ fn write_crate_output(krate: &Crate, output: &str) {
         "<html>\n\
         <head><title>{} {}</title></head>\n\
         <body><pre style=\"word-wrap: break-word; white-space: pre-wrap;\">\n\
-        {}\n\
-        </pre></body>\n\
+        {}</pre></body>\n\
         </html>",
-        krate.name, krate.version, output
+        krate.name,
+        krate.version,
+        output.trim()
     )
     .unwrap();
 }
