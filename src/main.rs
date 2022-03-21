@@ -153,7 +153,7 @@ fn main() {
 
         let miri_flags =
             "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-check-number-validity \
-             -Zmiri-panic-on-unsupported";
+             -Zmiri-panic-on-unsupported -Zmiri-tag-raw-pointers";
 
         let container_id = std::process::Command::new("docker")
             .args(&[
