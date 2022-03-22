@@ -212,8 +212,10 @@ fn main() {
             krate.status = Status::Error(String::new());
         }
 
-        write_crate_output(&krate, &output);
-        write_output(&crates);
+        fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
+        fs::write(format!("logs/{}/{}", krate.name, krate.version), &*output).unwrap();
+
+        render(&crates);
 
         /*
         let tag_re = regex::Regex::new(r"<\d+>").unwrap();
@@ -233,24 +235,46 @@ fn main() {
     }
 }
 
+fn render(crates: &[Crate]) {
+    write_output(crates);
+
+    for krate in crates {
+        let path = format!("logs/{}/{}", krate.name, krate.version);
+        if let Ok(contents) = fs::read_to_string(&path) {
+            write_crate_output(krate, &contents);
+        }
+    }
+}
+
+#[rustfmt::skip]
+macro_rules! log_format {
+    () => {
+r#"<html><head><style>
+pre {{
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    font-size-adjust: none;
+}}
+</style><title>{} {}</title></head><body><pre>
+{}
+</pre></body></html>"#
+    }
+}
+
 fn write_crate_output(krate: &Crate, output: &str) {
     fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
     let mut file = File::create(format!("logs/{}/{}.html", krate.name, krate.version)).unwrap();
     write!(
         file,
-        "<html>\n\
-        <head><title>{} {}</title></head>\n\
-        <body><pre style=\"word-wrap: break-word; white-space: pre-wrap;\">\n\
-        {}</pre></body>\n\
-        </html>",
+        log_format!(),
         krate.name,
         krate.version,
-        output.trim()
+        html_escape::encode_text(output.trim())
     )
     .unwrap();
 }
 
-const OUTPUT_HEADER: &str = r#"<style>
+const OUTPUT_HEADER: &str = r#"<html><head><style>
     body {
         background: #111;
         color: #eee;
@@ -278,9 +302,7 @@ const OUTPUT_HEADER: &str = r#"<style>
         width: 40em;
         margin: auto;
     }
-</style>
-<html>
-<body>
+</style></head><body>
 <div class="page">"#;
 
 fn write_output(crates: &[Crate]) {
