@@ -248,6 +248,10 @@ fn render(crates: &[Crate]) {
 macro_rules! log_format {
     () => {
 r#"<html><head><style>
+body {{
+    background: #111;
+    color: #eee;
+}}
 pre {{
     word-wrap: break-word;
     white-space: pre-wrap;
@@ -273,35 +277,67 @@ fn write_crate_output(krate: &Crate, output: &str) {
 }
 
 const OUTPUT_HEADER: &str = r#"<html><head><style>
-    body {
-        background: #111;
-        color: #eee;
-        font-family: sans-serif;
-        font-size: 18px;
-    }
-    a {
-        color: #eee;
-    }
-    .row {
-        display: flex;
-        border-bottom: 1px solid #333;
-        width: 40em;
-        padding: 1em;
-    }
-    .crate {
-        flex: 1;
-        flex-basis: 50%;
-    }
-    .status {
-        flex: 2;
-        flex-basis: 50%;
-    }
-    .page {
-        width: 40em;
-        margin: auto;
-    }
+body {
+    background: #111;
+    color: #eee;
+    font-family: sans-serif;
+    font-size: 18px;
+    margin: 0;
+}
+a {
+    color: #eee;
+}
+.row {
+    display: flex;
+    border-bottom: 1px solid #333;
+    padding: 1em 0 1em 1em;
+    width: 100%;
+}
+.log {
+    order: 1;
+    height: 100vh;
+    margin: 0;
+    width: 100%;
+    font-size: 13px;
+}
+.pre {
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+.crates {
+    order: 2;
+    height: 100vh;
+    width: 40em;
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+.crate {
+    order: 1;
+    flex: 2;
+}
+.status {
+    order: 2;
+    flex: 1;
+}
+.page {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    margin: 0;
+}
 </style></head><body>
-<div class="page">"#;
+<script>
+function change_log(path) {
+    var html = "<object data=\"" + path + "\" width=100% height=100%></object>";
+    document.getElementById("log").innerHTML = html;
+}
+</script>
+<div class="page">
+<div class="log" id="log">
+    <object width=100% height=100%></object>
+</div>
+<div class="crates">
+"#;
 
 fn write_output(crates: &[Crate]) {
     let mut output = File::create(".crates.json").unwrap();
@@ -317,7 +353,7 @@ fn write_output(crates: &[Crate]) {
     for c in crates {
         write!(
             output,
-            "<div class=\"row\"><div class=\"crate\"><a href=\"logs/{}/{}.html\">{} {}</a></div>",
+            "<div class=\"row\" onclick=\"change_log(&quot;logs/{}/{}.html&quot;)\"><div class=\"crate\">{} {}</div>",
             c.name, c.version, c.name, c.version
         )
         .unwrap();
@@ -331,6 +367,7 @@ fn write_output(crates: &[Crate]) {
         .unwrap();
         writeln!(output, "</div></div>").unwrap();
     }
+    write!(output, "</div></body></html>").unwrap();
 
     fs::rename(".index.html", "index.html").unwrap();
 
@@ -340,7 +377,7 @@ fn write_output(crates: &[Crate]) {
         if let Status::UB { cause, .. } = &c.status {
             write!(
             output,
-            "<div class=\"row\"><div class=\"crate\"><a href=\"logs/{}/{}.html\">{} {}</a></div>",
+            "<div class=\"row\" onclick=\"change_log(&quot;logs/{}/{}.html&quot;)\"><div class=\"crate\">{} {}</div>",
             c.name, c.version, c.name, c.version
         )
             .unwrap();
