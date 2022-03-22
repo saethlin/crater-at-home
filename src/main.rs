@@ -335,6 +335,24 @@ fn write_output(crates: &[Crate]) {
     }
 
     fs::rename(".index.html", "index.html").unwrap();
+
+    let mut output = File::create(".ub.html").unwrap();
+    writeln!(output, "{}", OUTPUT_HEADER).unwrap();
+    for c in crates {
+        if let Status::UB { cause, .. } = &c.status {
+            write!(
+            output,
+            "<div class=\"row\"><div class=\"crate\"><a href=\"logs/{}/{}.html\">{} {}</a></div>",
+            c.name, c.version, c.name, c.version
+        )
+            .unwrap();
+            write!(output, "<div class=\"status\">").unwrap();
+            write!(output, "UB: {}", cause).unwrap();
+            writeln!(output, "</div></div>").unwrap();
+        }
+    }
+
+    fs::rename(".ub.html", "ub.html").unwrap();
 }
 
 /*
