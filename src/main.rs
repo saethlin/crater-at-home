@@ -127,14 +127,10 @@ fn main() {
         for file in fs::read_dir(name.path()).unwrap() {
             let file = file.unwrap();
             let name = name.file_name().into_string().unwrap();
-            let version = file
-                .file_name()
-                .into_string()
-                .unwrap()
-                .strip_suffix(".html")
-                .unwrap()
-                .to_string();
-            previously_run.push((name, version));
+            let version = file.file_name().into_string().unwrap();
+            if !version.ends_with(".html") {
+                previously_run.push((name, version));
+            }
         }
     }
 
