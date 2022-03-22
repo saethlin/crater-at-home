@@ -134,6 +134,8 @@ fn main() {
         }
     }
 
+    render(&crates);
+
     for i in 0..crates.len() {
         let krate = &mut crates[i];
 
