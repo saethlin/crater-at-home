@@ -156,6 +156,7 @@ fn main() {
         let container_id = std::process::Command::new("docker")
             .args(&[
                 "create",
+                "--rm",
                 "-e",
                 "RUSTFLAGS=-Zrandomize-layout",
                 "-e",
