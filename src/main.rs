@@ -301,7 +301,7 @@ a {
     height: 100vh;
     margin: 0;
     width: 100%;
-    font-size: 13px;
+    font-size: 14px;
 }
 .pre {
     word-wrap: break-word;
