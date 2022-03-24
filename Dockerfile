@@ -10,9 +10,15 @@ RUN cargo install cargo-download
 RUN ./rustup-toolchain
 RUN ./miri check
 RUN ./miri install
+RUN rm -rf /miri
 RUN rustup default miri
 RUN rustup toolchain remove stable
-RUN rm -rf /miri
+RUN apt-get update && apt-get install -y time
 WORKDIR /root
-RUN echo "cargo download -x --output=/root/build 2>&1 \$1 && cd /root/build && cargo miri test --jobs=1 --no-fail-fast -- --test-threads=1 2>&1" >> run.sh
+RUN echo "exec 2>&1" >> run.sh && \
+    echo "set -ev" >> run.sh && \
+    echo "cargo download -x --output=/root/build \$1" >> run.sh && \
+    echo "cd build" >> run.sh && \
+    echo "/usr/bin/time -v cargo miri test --jobs=1 --no-fail-fast -- --test-threads=1" >> run.sh && \
+    echo "cat Cargo.lock" >> run.sh
 ENTRYPOINT ["bash", "run.sh"]
