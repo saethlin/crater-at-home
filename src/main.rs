@@ -261,8 +261,12 @@ body {{
 pre {{
     word-wrap: break-word;
     white-space: pre-wrap;
-    font-size-adjust: none;
     font-size: 14px;
+    font-size-adjust: none;
+    text-size-adjust: none;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
 }}
 </style><title>{} {}</title></head>
 <script>
@@ -407,8 +411,12 @@ body {
 pre {
     word-wrap: break-word;
     white-space: pre-wrap;
-    font-size-adjust: none;
     font-size: 14px;
+    font-size-adjust: none;
+    text-size-adjust: none;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
 }
 </style><title>Miri build logs</title></head><body><pre>
 Click on a crate to the right to display its build log
