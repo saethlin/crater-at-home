@@ -156,12 +156,12 @@ fn main() {
         let container_id = std::process::Command::new("docker")
             .args(&[
                 "create",
-                "--rm",
-                "-e",
+                "--tty",
+                "--env",
                 "RUSTFLAGS=-Zrandomize-layout",
-                "-e",
+                "--env",
                 "RUST_BACKTRACE=0",
-                "-e",
+                "--env",
                 miri_flags,
                 "miri:latest",
                 &format!("{}=={}", krate.name, krate.version),
@@ -192,6 +192,11 @@ fn main() {
 
         let res = std::process::Command::new("docker")
             .args(&["logs", &container_id])
+            .output()
+            .unwrap();
+
+        std::process::Command::new("docker")
+            .args(&["rm", &container_id])
             .output()
             .unwrap();
 
@@ -266,16 +271,22 @@ pre {{
 }
 
 fn write_crate_output(krate: &Crate, output: &str) {
+    let mut clean = String::new();
+    for mut line in output.lines() {
+        while let Some(pos) = line.find('\r') {
+            line = &line[pos + 1..];
+        }
+        clean.push_str(line);
+        clean.push('\n');
+    }
+    let encoded = ansi_to_html::convert_escaped(clean.trim()).unwrap();
+    let encoded = encoded.replace("\u{1b}(B</span>", "</span>");
+
     fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
+
     let mut file = File::create(format!("logs/{}/{}.html", krate.name, krate.version)).unwrap();
-    write!(
-        file,
-        log_format!(),
-        krate.name,
-        krate.version,
-        html_escape::encode_text(output.trim())
-    )
-    .unwrap();
+
+    write!(file, log_format!(), krate.name, krate.version, encoded).unwrap();
 }
 
 const OUTPUT_HEADER: &str = r#"<!DOCTYPE HTML>
