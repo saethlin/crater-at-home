@@ -264,23 +264,37 @@ pre {{
     font-size-adjust: none;
     font-size: 14px;
 }}
-</style><title>{} {}</title></head><body><pre>
+</style><title>{} {}</title></head>
+<script>
+function scroll_to_ub() {{
+    var ub = document.getElementById("ub");
+    if (ub !== null) {{
+        ub.scrollIntoView();
+    }}
+}}
+</script>
+<body onload="scroll_to_ub()"><pre>
 {}
 </pre></body></html>"#
     }
 }
 
 fn write_crate_output(krate: &Crate, output: &str) {
-    let mut clean = String::new();
+    let mut encoded = String::new();
+    let mut found_ub = false;
     for mut line in output.lines() {
         while let Some(pos) = line.find('\r') {
             line = &line[pos + 1..];
         }
-        clean.push_str(line);
-        clean.push('\n');
+        if !found_ub && line.contains("Undefined Behavior:") {
+            found_ub = true;
+            encoded.push_str("</pre><pre id=\"ub\">\n");
+        }
+        let line = ansi_to_html::convert_escaped(line.trim()).unwrap();
+        let line = line.replace("\u{1b}(B</span>", "</span>");
+        encoded.push_str(&line);
+        encoded.push('\n');
     }
-    let encoded = ansi_to_html::convert_escaped(clean.trim()).unwrap();
-    let encoded = encoded.replace("\u{1b}(B</span>", "</span>");
 
     fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
 
@@ -321,7 +335,7 @@ a {
 .crates {
     order: 2;
     height: 100vh;
-    width: 40em;
+    width: 25%;
     overflow-y: scroll;
     overflow-x: hidden;
 }
