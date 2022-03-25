@@ -16,9 +16,9 @@ RUN rustup toolchain remove stable
 RUN apt-get update && apt-get install -y time
 WORKDIR /root
 RUN echo "exec 2>&1" >> run.sh && \
-    echo "set -ev" >> run.sh && \
-    echo "cargo download -x --output=/root/build \$1" >> run.sh && \
+    echo "set -v" >> run.sh && \
+    echo "cargo download --extract --output=/root/build \$1 || exit 1" >> run.sh && \
     echo "cd build" >> run.sh && \
-    echo "/usr/bin/time -v cargo miri test --jobs=1 --no-fail-fast -- --test-threads=1" >> run.sh && \
+    echo "/usr/bin/time -v timeout 900 cargo miri test --jobs=1 --no-fail-fast -- --test-threads=1" >> run.sh && \
     echo "cat Cargo.lock" >> run.sh
 ENTRYPOINT ["bash", "run.sh"]

@@ -153,9 +153,10 @@ fn main() {
             "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-check-number-validity \
              -Zmiri-panic-on-unsupported -Zmiri-tag-raw-pointers";
 
-        let container_id = std::process::Command::new("docker")
+        let res = std::process::Command::new("docker")
             .args(&[
-                "create",
+                "run",
+                "--rm",
                 "--tty",
                 "--env",
                 "RUSTFLAGS=-Zrandomize-layout",
@@ -167,45 +168,13 @@ fn main() {
                 &format!("{}=={}", krate.name, krate.version),
             ])
             .output()
-            .unwrap()
-            .stdout;
-        let container_id = String::from_utf8(container_id).unwrap().trim().to_string();
-
-        let mut build = std::process::Command::new("docker")
-            .args(&["start", "-a", &container_id])
-            .spawn()
-            .unwrap();
-
-        for _ in 0..(15 * 60) {
-            if build.try_wait().unwrap().is_some() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
-
-        std::process::Command::new("docker")
-            .args(&["stop", &container_id])
-            .status()
-            .unwrap();
-
-        log::info!("{} {} completed", krate.name, krate.version);
-
-        let res = std::process::Command::new("docker")
-            .args(&["logs", &container_id])
-            .output()
-            .unwrap();
-
-        std::process::Command::new("docker")
-            .args(&["rm", &container_id])
-            .output()
             .unwrap();
 
         let output = String::from_utf8_lossy(&res.stdout);
 
         assert!(res.stderr.is_empty()); // The container is supposed to redirect everything to stdout
 
-        let status = build.wait().unwrap();
-        if status.success() {
+        if res.status.success() {
             krate.status = Status::Passing;
         } else if output.contains("Undefined Behavior: ") {
             krate.status = Status::UB {
