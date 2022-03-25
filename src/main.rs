@@ -134,7 +134,7 @@ fn main() {
         }
     }
 
-    render(&crates);
+    render(&mut crates);
 
     for i in 0..crates.len() {
         let krate = &mut crates[i];
@@ -174,21 +174,10 @@ fn main() {
 
         assert!(res.stderr.is_empty()); // The container is supposed to redirect everything to stdout
 
-        if res.status.success() {
-            krate.status = Status::Passing;
-        } else if output.contains("Undefined Behavior: ") {
-            krate.status = Status::UB {
-                cause: String::new(), //diagnose(&output),
-                status: String::new(),
-            };
-        } else {
-            krate.status = Status::Error(String::new());
-        }
-
         fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
         fs::write(format!("logs/{}/{}", krate.name, krate.version), &*output).unwrap();
 
-        render(&crates);
+        render(&mut crates);
 
         /*
         let tag_re = regex::Regex::new(r"<\d+>").unwrap();
@@ -208,15 +197,23 @@ fn main() {
     }
 }
 
-fn render(crates: &[Crate]) {
-    write_output(crates);
-
-    for krate in crates {
+fn render(crates: &mut [Crate]) {
+    for krate in crates.iter_mut() {
         let path = format!("logs/{}/{}", krate.name, krate.version);
-        if let Ok(contents) = fs::read_to_string(&path) {
-            write_crate_output(krate, &contents);
+        if let Ok(output) = fs::read_to_string(&path) {
+            if output.contains("Undefined Behavior: ") {
+                krate.status = Status::UB {
+                    cause: diagnose(&output),
+                    status: String::new(),
+                };
+            } else {
+                krate.status = Status::Passing;
+            }
+            write_crate_output(krate, &output);
         }
     }
+
+    write_output(crates);
 }
 
 #[rustfmt::skip]
@@ -446,8 +443,9 @@ fn write_output(crates: &[Crate]) {
     fs::rename(".ub.html", "ub.html").unwrap();
 }
 
-/*
-fn diagnose(output: &str) -> String {
+fn diagnose(_output: &str) -> String {
+    String::new()
+    /*
     if output.contains("-Zmiri-track-pointer-tag") {
         return diagnose_sb(output);
     }
@@ -502,8 +500,8 @@ fn diagnose(output: &str) -> String {
 
     causes.sort();
     causes.dedup();
+    */
 }
-*/
 
 /*
 const CRATES_ROOT: &str = "https://static.crates.io/crates";
