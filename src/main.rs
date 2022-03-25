@@ -201,14 +201,18 @@ fn render(crates: &mut [Crate]) {
     for krate in crates.iter_mut() {
         let path = format!("logs/{}/{}", krate.name, krate.version);
         if let Ok(output) = fs::read_to_string(&path) {
-            if output.contains("Undefined Behavior: ") {
-                krate.status = Status::UB {
+            krate.status = if output.contains("Undefined Behavior: ") {
+                Status::UB {
                     cause: diagnose(&output),
                     status: String::new(),
-                };
+                }
+            } else if output.contains("Command terminated by signal 9") {
+                Status::Error("OOM".to_string())
+            } else if output.contains("Command terminated with non-zero exit status 124") {
+                Status::Error("Timeout".to_string())
             } else {
-                krate.status = Status::Passing;
-            }
+                Status::Passing
+            };
             write_crate_output(krate, &output);
         }
     }
