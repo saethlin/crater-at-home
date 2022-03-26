@@ -16,5 +16,5 @@ ureq = "2.4.0"
 lazy_static = "1.4.0"
 flate2 = "1.0.22"
 tar = "0.4.38"
-html-escape = "0.2.11"
+html-escape = { version = "0.2.11", features = ["once_cell"] }
 ansi-to-html = "0.1.0"
