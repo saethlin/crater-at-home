@@ -10,13 +10,15 @@ use std::{
 };
 
 #[derive(Parser)]
-#[clap(author, version, about, long_about = None)]
 struct Args {
-    #[clap(long)]
+    #[clap(long, default_value_t = 10000)]
     crates: usize,
 
     #[clap(long, default_value_t = 8)]
     memory_limit_gb: usize,
+
+    #[clap(long, default_value_t = 8)]
+    jobs: usize,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -142,7 +144,7 @@ fn main() {
     render(&mut cursor.lock().unwrap().crates);
 
     let mut threads = Vec::new();
-    for _ in 0..8 {
+    for _ in 0..args.jobs {
         let cursor = cursor.clone();
         let previously_run = previously_run.clone();
         let handle = std::thread::spawn(move || {
@@ -436,7 +438,7 @@ fn write_output(crates: &[Crate]) {
         match &c.status {
             Status::Unknown => write!(output, "Unknown"),
             Status::Passing => write!(output, "Passing"),
-            Status::Error(_) => write!(output, "Error"),
+            Status::Error(cause) => write!(output, "Error: {}", cause),
             Status::UB { cause, .. } => write!(output, "UB: {}", cause),
         }
         .unwrap();
