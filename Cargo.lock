@@ -19,9 +19,8 @@ dependencies = [
 
 [[package]]
 name = "ansi-to-html"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19ee82de0545b181a17cbdef44fce80ecaf394e001da7ea279008bf2e0944bee"
+version = "0.1.1"
+source = "git+https://github.com/Aloso/to-html#55ccdf5e9827c1d84e9e37fee70c993d05d1532a"
 dependencies = [
  "once_cell",
  "regex",

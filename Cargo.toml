@@ -16,4 +16,8 @@ ureq = "2.4.0"
 lazy_static = "1.4.0"
 flate2 = "1.0.22"
 tar = "0.4.38"
-ansi-to-html = { version = "0.1.0", features = ["once_cell"] }
+ansi-to-html = { git = "https://github.com/Aloso/to-html", features = ["once_cell"] }
+
+[profile.release]
+panic = "abort"
+debug = 1
