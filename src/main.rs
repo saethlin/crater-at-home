@@ -51,7 +51,11 @@ fn main() {
     let mut crates = HashMap::new();
 
     if Path::new("crates.json").exists() {
-        for line in fs::read_to_string("crates.json").unwrap().lines() {
+        for line in fs::read_to_string("crates.json")
+            .unwrap()
+            .lines()
+            .take(args.crates)
+        {
             let krate: Crate = serde_json::from_str(&line).unwrap();
             crates.insert(krate.name.clone(), krate);
         }
@@ -157,7 +161,11 @@ fn main() {
                 let i = lock.next;
                 lock.next += 1;
 
-                let krate = lock.crates[i].clone();
+                let krate = if let Some(krate) = lock.crates.get(i) {
+                    krate.clone()
+                } else {
+                    break;
+                };
 
                 drop(lock);
 
