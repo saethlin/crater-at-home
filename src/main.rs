@@ -6,6 +6,7 @@ use std::{
     fs::{self, File},
     io::Write,
     path::Path,
+    sync::{Arc, Mutex},
 };
 
 #[derive(Parser)]
@@ -14,14 +15,11 @@ struct Args {
     #[clap(long)]
     crates: usize,
 
-    #[clap(long, default_value_t = 63)]
+    #[clap(long, default_value_t = 8)]
     memory_limit_gb: usize,
-
-    #[clap(long, default_value_t = 15)]
-    timeout_minutes: u64,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 struct Crate {
     name: String,
     recent_downloads: Option<u64>,
@@ -29,7 +27,7 @@ struct Crate {
     status: Status,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 enum Status {
     Unknown,
     Passing,
@@ -134,66 +132,84 @@ fn main() {
         }
     }
 
-    render(&mut crates);
+    struct Cursor {
+        crates: Vec<Crate>,
+        next: usize,
+    }
 
-    for i in 0..crates.len() {
-        let krate = &mut crates[i];
+    let cursor = Arc::new(Mutex::new(Cursor { crates, next: 0 }));
 
-        if previously_run
-            .iter()
-            .any(|(name, version)| &krate.name == name && &krate.version == version)
-        {
-            log::info!("Already ran {} {}", krate.name, krate.version);
-            continue;
-        }
+    render(&mut cursor.lock().unwrap().crates);
 
-        log::info!("Running {} {}", krate.name, krate.version);
+    let mut threads = Vec::new();
+    for _ in 0..8 {
+        let cursor = cursor.clone();
+        let previously_run = previously_run.clone();
+        let handle = std::thread::spawn(move || {
+            loop {
+                let mut lock = cursor.lock().unwrap();
 
-        let miri_flags =
-            "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-check-number-validity \
-             -Zmiri-panic-on-unsupported -Zmiri-tag-raw-pointers";
+                let i = lock.next;
+                lock.next += 1;
 
-        let res = std::process::Command::new("docker")
-            .args(&[
-                "run",
-                "--rm",
-                "--tty",
-                "--env",
-                "RUSTFLAGS=-Zrandomize-layout",
-                "--env",
-                "RUST_BACKTRACE=0",
-                "--env",
-                miri_flags,
-                "miri:latest",
-                &format!("{}=={}", krate.name, krate.version),
-            ])
-            .output()
-            .unwrap();
+                let krate = lock.crates[i].clone();
 
-        let output = String::from_utf8_lossy(&res.stdout);
+                drop(lock);
 
-        assert!(res.stderr.is_empty()); // The container is supposed to redirect everything to stdout
+                if previously_run
+                    .iter()
+                    .any(|(name, version)| &krate.name == name && &krate.version == version)
+                {
+                    log::info!("Already ran {} {}", krate.name, krate.version);
+                    continue;
+                }
 
-        fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
-        fs::write(format!("logs/{}/{}", krate.name, krate.version), &*output).unwrap();
+                log::info!("Running {} {}", krate.name, krate.version);
 
-        render(&mut crates);
+                let miri_flags =
+                    "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-check-number-validity \
+                     -Zmiri-panic-on-unsupported -Zmiri-tag-raw-pointers";
 
-        /*
-        let tag_re = regex::Regex::new(r"<\d+>").unwrap();
-        let tag = output
-            .lines()
-            .find(|line| line.contains("Undefined Behavior"))
-            .and_then(|line| tag_re.find(line));
+                let res = std::process::Command::new("docker")
+                    .args(&[
+                        "run",
+                        "--rm",
+                        "--tty",
+                        "--env",
+                        "RUSTFLAGS=-Zrandomize-layout",
+                        "--env",
+                        "RUST_BACKTRACE=0",
+                        "--env",
+                        miri_flags,
+                        &format!("--memory={}g", args.memory_limit_gb),
+                        "miri:latest",
+                        &format!("{}=={}", krate.name, krate.version),
+                    ])
+                    .output()
+                    .unwrap();
 
-        let storage = logging::LogStorage::new(log::LevelFilter::Debug);
+                let output = String::from_utf8_lossy(&res.stdout);
 
-        if let Some(tag) = tag {
-            let tag = tag.as_str();
-            let tag = &tag[1..tag.len() - 1];
-            let miri_flags = format!("{} -Zmiri-track-pointer-tag={}", miri_flags, tag);
-        }
-        */
+                // The container is supposed to redirect everything to stdout
+                assert!(
+                    res.stderr.is_empty(),
+                    "{}",
+                    String::from_utf8_lossy(&res.stderr)
+                );
+
+                fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
+                fs::write(format!("logs/{}/{}", krate.name, krate.version), &*output).unwrap();
+
+                let mut lock = cursor.lock().unwrap();
+                lock.crates[i] = krate;
+                render(&mut lock.crates);
+            }
+        });
+        threads.push(handle);
+    }
+
+    for t in threads {
+        t.join().unwrap();
     }
 }
 
@@ -206,10 +222,12 @@ fn render(crates: &mut [Crate]) {
                     cause: diagnose(&output),
                     status: String::new(),
                 }
-            } else if output.contains("Command terminated by signal 9") {
-                Status::Error("OOM".to_string())
-            } else if output.contains("Command terminated with non-zero exit status 124") {
+            } else if output.contains("Command exited with non-zero status 124") {
                 Status::Error("Timeout".to_string())
+            } else if output.contains("Command exited with non-zero status 255") {
+                Status::Error("OOM".to_string())
+            } else if output.contains("Command exited with non-zero status") {
+                Status::Error(String::new())
             } else {
                 Status::Passing
             };
