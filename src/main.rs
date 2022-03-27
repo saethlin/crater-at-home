@@ -315,7 +315,7 @@ a {
 .row {
     display: flex;
     border-bottom: 1px solid #333;
-    padding: 1em 0 1em 1em;
+    padding: 1em 2em 1em 1em;
     width: 100%;
 }
 .log {
@@ -338,11 +338,13 @@ a {
 }
 .crate {
     order: 1;
-    flex: 2;
+    flex: 1;
+    padding-right: 2em;
 }
 .status {
     order: 2;
     flex: 1;
+    padding-right: 2em;
 }
 .page {
     display: flex;
@@ -470,22 +472,28 @@ fn write_output(crates: &[Crate]) {
     fs::rename(".ub.html", "ub.html").unwrap();
 }
 
-fn diagnose(_output: &str) -> String {
-    String::new()
-    /*
-    if output.contains("-Zmiri-track-pointer-tag") {
-        return diagnose_sb(output);
-    }
-
+fn diagnose(output: &str) -> String {
     let mut causes = Vec::new();
 
     let lines = output.lines().collect::<Vec<_>>();
 
     for (l, line) in lines
         .iter()
-        .emumerate()
+        .enumerate()
         .filter(|(_, line)| line.contains("Undefined Behavior: "))
     {
+        let end = lines
+            .iter()
+            .enumerate()
+            .skip(l)
+            .find_map(|(l, line)| {
+                if line.trim().is_empty() {
+                    Some(l)
+                } else {
+                    None
+                }
+            })
+            .unwrap();
         if line.contains("uninitialized") {
             causes.push("uninitialized memory".to_string());
         } else if line.contains("out-of-bounds") {
@@ -500,25 +508,38 @@ fn diagnose(_output: &str) -> String {
             causes.push("unaligned reference".to_string());
         } else if line.contains("incorrect layout on deallocation") {
             causes.push("incorrect layout on deallocation".to_string());
-        } else if line.contains("borrow stack") {
+        } else if line.contains("borrow stack") || line.contains("reborrow") {
             if line.contains("<untagged>") {
                 causes.push("int-to-ptr cast".to_string());
             } else {
-                causes.push("SB".to_string());
+                causes.push(diagnose_sb(&lines[l..end]));
             }
         } else {
-            causes.push(line.split("Undefined Behavior: ").nth(1).unwrap().trim());
+            causes.push(
+                line.split("Undefined Behavior: ")
+                    .nth(1)
+                    .unwrap()
+                    .trim()
+                    .to_string(),
+            );
         }
 
         for line in &lines[l..] {
-            if line.contains("note: inside ") && line.contains(" at ") {
+            if line.contains("inside `") && line.contains(" at ") {
                 let path = line.split(" at ").nth(1).unwrap();
                 if path.contains("workdir") || !path.starts_with("/") {
                     break;
-                } else if path.contains("github") {
+                } else if path.contains("/root/.cargo/registry/src/") {
+                    let source_crate = path
+                        .split("/root/.cargo/registry/src/github.com-1ecc6299db9ec823/")
+                        .nth(1)
+                        .unwrap()
+                        .split("/")
+                        .nth(0)
+                        .unwrap();
                     let last = causes.last().unwrap().to_string();
-                    *causes.last_mut().unwrap() =
-                        format!("{} ({})", last, path.split("/").nth(7).unwrap());
+
+                    *causes.last_mut().unwrap() = format!("{} ({})", last, source_crate);
                     break;
                 }
             }
@@ -527,55 +548,25 @@ fn diagnose(_output: &str) -> String {
 
     causes.sort();
     causes.dedup();
-    */
+
+    causes.join(", ")
 }
 
-/*
-const CRATES_ROOT: &str = "https://static.crates.io/crates";
-
-lazy_static::lazy_static! {
-    static ref CLIENT: ureq::Agent = ureq::Agent::new();
-}
-
-use flate2::read::GzDecoder;
-use tar::Archive;
-
-impl Crate {
-    fn fetch_url(&self) -> String {
-        format!(
-            "{0}/{1}/{1}-{2}.crate",
-            CRATES_ROOT, self.name, self.version
-        )
-    }
-
-    fn fetch(&self) -> Result<(), Box<dyn std::error::Error>> {
-        std::env::set_current_dir("/")?;
-        std::fs::remove_dir_all("/build")?;
-        std::fs::create_dir_all("/build")?;
-        std::env::set_current_dir("/build")?;
-
-        let path = Path::new("/build");
-
-        let body = CLIENT.get(&self.fetch_url()).call()?.into_reader();
-        let mut archive = Archive::new(GzDecoder::new(body));
-
-        let entries = archive.entries()?;
-        for entry in entries {
-            let mut entry = entry?;
-            let relpath = {
-                let path = entry.path()?;
-                path.into_owned()
-            };
-            let mut components = relpath.components();
-            // Throw away the first path component
-            components.next();
-            let full_path = path.join(&components.as_path());
-            if let Some(parent) = full_path.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
-            entry.unpack(&full_path)?;
-        }
-        Ok(())
+fn diagnose_sb(lines: &[&str]) -> String {
+    if lines[0].contains("only grants SharedReadOnly") && lines[0].contains("for Unique") {
+        String::from("&->&mut")
+    } else if lines.iter().any(|line| line.contains("invalidated")) {
+        String::from("SB-invalidation")
+    } else if lines
+        .iter()
+        .any(|line| line.contains("created due to a retag at offsets [0x0..0x0]"))
+    {
+        String::from("SB-null-provenance")
+    } else if lines[0].contains("does not exist in the borrow stack") {
+        String::from("SB-use-outside-provenance")
+    } else if lines[0].contains("no item granting write access for deallocation") {
+        String::from("SB-invalid-dealloc")
+    } else {
+        String::from("SB-uncategorized")
     }
 }
-*/
