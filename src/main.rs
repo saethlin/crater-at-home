@@ -1,4 +1,5 @@
 use clap::Parser;
+use color_eyre::eyre::{eyre, Context, ErrReport, Result};
 use crates_io_api::{CratesQuery, Sort, SyncClient};
 use std::{
     collections::hash_map::Entry,
@@ -37,7 +38,7 @@ enum Status {
     UB { cause: String, status: String },
 }
 
-fn main() {
+fn main() -> Result<()> {
     if std::env::var("RUST_BACKTRACE").is_err() {
         std::env::set_var("RUST_BACKTRACE", "1");
     }
@@ -45,6 +46,7 @@ fn main() {
         std::env::set_var("RUST_LOG", "info");
     }
     env_logger::init();
+    color_eyre::install()?;
 
     let args = Args::parse();
 
@@ -56,7 +58,7 @@ fn main() {
             .lines()
             .take(args.crates)
         {
-            let krate: Crate = serde_json::from_str(&line).unwrap();
+            let krate: Crate = serde_json::from_str(&line)?;
             crates.insert(krate.name.clone(), krate);
         }
     }
@@ -64,8 +66,7 @@ fn main() {
     let client = SyncClient::new(
         "miri (kimockb@gmail.com)",
         std::time::Duration::from_millis(1000),
-    )
-    .unwrap();
+    )?;
 
     log::info!("Discovering crates...");
     let mut page = 1;
@@ -76,7 +77,7 @@ fn main() {
             .build();
         query.set_page(page);
 
-        let response = client.crates(query).unwrap();
+        let response = client.crates(query)?;
 
         for c in response.crates.into_iter().take(args.crates - crates.len()) {
             match crates.entry(c.name.clone()) {
@@ -111,11 +112,7 @@ fn main() {
     log::info!("Loading missing metadata...");
     for (k, krate) in crates.values_mut().enumerate() {
         if krate.recent_downloads.is_none() {
-            krate.recent_downloads = client
-                .get_crate(&krate.name)
-                .unwrap()
-                .crate_data
-                .recent_downloads;
+            krate.recent_downloads = client.get_crate(&krate.name)?.crate_data.recent_downloads;
             assert!(krate.recent_downloads.is_some());
             log::info!("{} of {}", k, args.crates);
         }
@@ -126,13 +123,13 @@ fn main() {
     // Sort by recent downloads, descending
     crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
 
-    fs::create_dir_all("logs").unwrap();
+    fs::create_dir_all("logs")?;
 
     let mut previously_run = Vec::new();
-    for name in fs::read_dir("logs").unwrap() {
-        let name = name.unwrap();
-        for file in fs::read_dir(name.path()).unwrap() {
-            let file = file.unwrap();
+    for name in fs::read_dir("logs")? {
+        let name = name?;
+        for file in fs::read_dir(name.path())? {
+            let file = file?;
             let name = name.file_name().into_string().unwrap();
             let version = file.file_name().into_string().unwrap();
             if !version.ends_with(".html") {
@@ -148,15 +145,22 @@ fn main() {
 
     let cursor = Arc::new(Mutex::new(Cursor { crates, next: 0 }));
 
-    render(&mut cursor.lock().unwrap().crates);
+    render(
+        &mut cursor
+            .lock()
+            .map_err(|_| eyre!("an executor thread panicked"))?
+            .crates,
+    )?;
 
     let mut threads = Vec::new();
     for _ in 0..args.jobs {
         let cursor = cursor.clone();
         let previously_run = previously_run.clone();
-        let handle = std::thread::spawn(move || {
+        let handle = std::thread::spawn(move || -> Result<()> {
             loop {
-                let mut lock = cursor.lock().unwrap();
+                let mut lock = cursor
+                    .lock()
+                    .map_err(|_| eyre!("the main thread panicked"))?;
 
                 let i = lock.next;
                 lock.next += 1;
@@ -199,7 +203,7 @@ fn main() {
                         &format!("{}=={}", krate.name, krate.version),
                     ])
                     .output()
-                    .unwrap();
+                    .wrap_err("failed to execute docker")?;
 
                 let output = String::from_utf8_lossy(&res.stdout);
 
@@ -210,23 +214,28 @@ fn main() {
                     String::from_utf8_lossy(&res.stderr)
                 );
 
-                fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
-                fs::write(format!("logs/{}/{}", krate.name, krate.version), &*output).unwrap();
+                fs::create_dir_all(format!("logs/{}", krate.name))?;
+                fs::write(format!("logs/{}/{}", krate.name, krate.version), &*output)?;
 
-                let mut lock = cursor.lock().unwrap();
+                let mut lock = cursor
+                    .lock()
+                    .map_err(|_| eyre!("the main thread panicked"))?;
                 lock.crates[i] = krate;
-                render(&mut lock.crates);
+                render(&mut lock.crates)?;
             }
         });
         threads.push(handle);
     }
 
     for t in threads {
-        t.join().unwrap();
+        t.join()
+            .map_err(|e| *e.downcast::<ErrReport>().unwrap())??;
     }
+
+    Ok(())
 }
 
-fn render(crates: &mut [Crate]) {
+fn render(crates: &mut [Crate]) -> Result<()> {
     for krate in crates.iter_mut() {
         let path = format!("logs/{}/{}", krate.name, krate.version);
         if let Ok(output) = fs::read_to_string(&path) {
@@ -244,11 +253,11 @@ fn render(crates: &mut [Crate]) {
             } else {
                 Status::Passing
             };
-            write_crate_output(krate, &output);
+            write_crate_output(krate, &output)?;
         }
     }
 
-    write_output(crates);
+    write_output(crates)
 }
 
 #[rustfmt::skip]
@@ -284,7 +293,7 @@ function scroll_to_ub() {{
     }
 }
 
-fn write_crate_output(krate: &Crate, output: &str) {
+fn write_crate_output(krate: &Crate, output: &str) -> Result<()> {
     let mut encoded = String::new();
     let mut found_ub = false;
     for mut line in output.lines() {
@@ -295,17 +304,18 @@ fn write_crate_output(krate: &Crate, output: &str) {
             found_ub = true;
             encoded.push_str("</pre><pre id=\"ub\">\n");
         }
-        let line = ansi_to_html::convert_escaped(line.trim()).unwrap();
+        let line = ansi_to_html::convert_escaped(line.trim())?;
         let line = line.replace("\u{1b}(B</span>", "</span>");
         encoded.push_str(&line);
         encoded.push('\n');
     }
 
-    fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
+    fs::create_dir_all(format!("logs/{}", krate.name))?;
 
-    let mut file = File::create(format!("logs/{}/{}.html", krate.name, krate.version)).unwrap();
+    let mut file = File::create(format!("logs/{}/{}.html", krate.name, krate.version))?;
 
-    write!(file, log_format!(), krate.name, krate.version, encoded).unwrap();
+    write!(file, log_format!(), krate.name, krate.version, encoded)?;
+    Ok(())
 }
 
 const OUTPUT_HEADER: &str = r#"<!DOCTYPE HTML>
@@ -429,40 +439,39 @@ Click on a crate to the right to display its build log
 <div class="crates">
 "#;
 
-fn write_output(crates: &[Crate]) {
-    let mut output = File::create(".crates.json").unwrap();
+fn write_output(crates: &[Crate]) -> Result<()> {
+    let mut output = File::create(".crates.json")?;
 
     for c in crates {
-        writeln!(output, "{}", serde_json::to_string(c).unwrap()).unwrap();
+        writeln!(output, "{}", serde_json::to_string(c)?)?;
     }
 
-    fs::rename(".crates.json", "crates.json").unwrap();
+    fs::rename(".crates.json", "crates.json")?;
 
-    let mut output = File::create(".index.html").unwrap();
-    writeln!(output, "{}", OUTPUT_HEADER).unwrap();
+    let mut output = File::create(".index.html")?;
+    writeln!(output, "{}", OUTPUT_HEADER)?;
     for c in crates {
         write!(
             output,
             "<div class=\"row\" onclick=\"change_log(&quot;{}&quot;, &quot;{}&quot;)\"><div class=\"crate\">{} {}</div>",
             c.name, c.version, c.name, c.version
         )
-        .unwrap();
-        write!(output, "<div class=\"status\">").unwrap();
+        ?;
+        write!(output, "<div class=\"status\">")?;
         match &c.status {
             Status::Unknown => write!(output, "Unknown"),
             Status::Passing => write!(output, "Passing"),
             Status::Error(cause) => write!(output, "Error: {}", cause),
             Status::UB { cause, .. } => write!(output, "UB: {}", cause),
-        }
-        .unwrap();
-        writeln!(output, "</div></div>").unwrap();
+        }?;
+        writeln!(output, "</div></div>")?;
     }
-    write!(output, "</div></body></html>").unwrap();
+    write!(output, "</div></body></html>")?;
 
-    fs::rename(".index.html", "index.html").unwrap();
+    fs::rename(".index.html", "index.html")?;
 
-    let mut output = File::create(".ub.html").unwrap();
-    writeln!(output, "{}", OUTPUT_HEADER).unwrap();
+    let mut output = File::create(".ub.html")?;
+    writeln!(output, "{}", OUTPUT_HEADER)?;
     for c in crates {
         if let Status::UB { cause, .. } = &c.status {
             write!(
@@ -470,14 +479,15 @@ fn write_output(crates: &[Crate]) {
             "<div class=\"row\" onclick=\"change_log(&quot;{}&quot;, &quot;{}&quot;)\"><div class=\"crate\">{} {}</div>",
             c.name, c.version, c.name, c.version
         )
-            .unwrap();
-            write!(output, "<div class=\"status\">").unwrap();
-            write!(output, "UB: {}", cause).unwrap();
-            writeln!(output, "</div></div>").unwrap();
+            ?;
+            write!(output, "<div class=\"status\">")?;
+            write!(output, "UB: {}", cause)?;
+            writeln!(output, "</div></div>")?;
         }
     }
 
-    fs::rename(".ub.html", "ub.html").unwrap();
+    fs::rename(".ub.html", "ub.html")?;
+    Ok(())
 }
 
 fn diagnose(output: &str) -> String {

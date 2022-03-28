@@ -11,6 +11,7 @@ log = "0.4.16"
 serde_json = "1.0.79"
 serde = { version = "1.0.136", features = ["derive"] }
 ansi-to-html = { git = "https://github.com/Aloso/to-html", features = ["once_cell"] }
+color-eyre = "0.6.1"
 
 [profile.release]
 panic = "abort"
