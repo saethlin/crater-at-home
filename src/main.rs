@@ -1,5 +1,5 @@
 use clap::Parser;
-use color_eyre::eyre::{eyre, Context, ErrReport, Result};
+use color_eyre::eyre::{ensure, eyre, Context, ErrReport, Result};
 use crates_io_api::{CratesQuery, Sort, SyncClient};
 use std::{
     collections::hash_map::Entry,
@@ -208,7 +208,7 @@ fn main() -> Result<()> {
                 let output = String::from_utf8_lossy(&res.stdout);
 
                 // The container is supposed to redirect everything to stdout
-                assert!(
+                ensure!(
                     res.stderr.is_empty(),
                     "{}",
                     String::from_utf8_lossy(&res.stderr)
