@@ -1,6 +1,7 @@
 use clap::Parser;
 use color_eyre::eyre::{ensure, eyre, Context, ErrReport, Result};
 use crates_io_api::{CratesQuery, Sort, SyncClient};
+use miri_the_world::*;
 use std::{
     collections::hash_map::Entry,
     collections::HashMap,
@@ -20,25 +21,6 @@ struct Args {
 
     #[clap(long, default_value_t = 8)]
     jobs: usize,
-}
-
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-struct Crate {
-    name: String,
-    recent_downloads: Option<u64>,
-    version: String,
-    status: Status,
-    #[serde(default)]
-    /// Time that the run took, in seconds
-    time: u64,
-}
-
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-enum Status {
-    Unknown,
-    Passing,
-    Error(String),
-    UB { cause: String, status: String },
 }
 
 fn main() -> Result<()> {
