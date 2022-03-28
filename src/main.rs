@@ -28,6 +28,9 @@ struct Crate {
     recent_downloads: Option<u64>,
     version: String,
     status: Status,
+    #[serde(default)]
+    /// Time that the run took, in seconds
+    time: u64,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -90,6 +93,7 @@ fn main() -> Result<()> {
                             recent_downloads: c.recent_downloads,
                             version: c.max_version,
                             status: Status::Unknown,
+                            time: u64::max_value(),
                         });
                     }
                 }
@@ -99,6 +103,7 @@ fn main() -> Result<()> {
                         recent_downloads: c.recent_downloads,
                         version: c.max_version,
                         status: Status::Unknown,
+                        time: u64::max_value(),
                     });
                 }
             }
@@ -165,7 +170,7 @@ fn main() -> Result<()> {
                 let i = lock.next;
                 lock.next += 1;
 
-                let krate = if let Some(krate) = lock.crates.get(i) {
+                let mut krate = if let Some(krate) = lock.crates.get(i) {
                     krate.clone()
                 } else {
                     break;
@@ -187,6 +192,8 @@ fn main() -> Result<()> {
                     "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-check-number-validity \
                      -Zmiri-panic-on-unsupported -Zmiri-tag-raw-pointers";
 
+                let start = std::time::Instant::now();
+
                 let res = std::process::Command::new("docker")
                     .args(&[
                         "run",
@@ -204,6 +211,9 @@ fn main() -> Result<()> {
                     ])
                     .output()
                     .wrap_err("failed to execute docker")?;
+
+                let end = std::time::Instant::now();
+                krate.time = (end - start).as_secs();
 
                 let output = String::from_utf8_lossy(&res.stdout);
 
