@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 
-use color_eyre::eyre::{ensure, eyre, Context, ErrReport, Result};
+use color_eyre::eyre::Result;
 use miri_the_world::*;
 
 fn main() -> Result<()> {
