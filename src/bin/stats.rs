@@ -89,7 +89,7 @@ fn main() -> Result<()> {
 }
 
 fn print_histogram(entries: impl Iterator<Item = (Result<usize, String>, usize)> + Clone) {
-    let max = entries.clone().map(|(_, x)| x).max().unwrap();
+    let max = entries.clone().map(|(_, x)| x).max().unwrap_or_default();
     for (k, v) in entries {
         match k {
             Ok(i) => print!("{:2}: ", i),

@@ -45,7 +45,7 @@ where
             let mut causes = Vec::new();
             for cause in value.split(',') {
                 let mut splits = cause.split_terminator('(');
-                let kind = splits.next().unwrap().trim().to_string();
+                let kind = splits.next().unwrap_or_default().trim().to_string();
                 let source_crate = splits
                     .next()
                     .map(|s| s.trim_end_matches(')').trim().to_string());
