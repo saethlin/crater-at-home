@@ -21,7 +21,20 @@ fn main() -> Result<()> {
     }
 
     let mut times = vec![];
+    let mut states: HashMap<_, usize> = HashMap::new();
+    let mut errored = 0;
     for krate in crates.values() {
+        match &krate.status {
+            Status::Unknown => continue,
+            Status::Passing => {}
+            Status::Error(_) => {
+                errored += 1;
+                continue;
+            }
+            Status::UB { cause, .. } => {
+                *states.entry(cause).or_default() += 1;
+            }
+        }
         let mut time = krate.time as usize / 60;
         let rm = krate.time as usize % 60;
         if rm != 0 {
@@ -33,15 +46,39 @@ fn main() -> Result<()> {
         times[time] += 1;
     }
 
-    let max = times.iter().skip(1).max().unwrap();
+    let mut states: Vec<_> = states.into_iter().collect();
+    states.sort();
+    states.sort_by_key(|(_, i)| usize::max_value() - *i);
 
-    for (i, time) in times.iter().enumerate().skip(1) {
-        print!("{:2}: {:5} ", i, time);
-        for _ in 0..(time * 50 / max) {
+    println!("errored: {}", errored);
+    println!();
+    println!("histogram over time taken to run each crate");
+    print_histogram(
+        times
+            .iter()
+            .copied()
+            .enumerate()
+            .skip(1)
+            .map(|(i, n)| (Ok(i), n)),
+    );
+    println!();
+    println!("histogram over kind of UB");
+    print_histogram(states.iter().map(|&(k, v)| (Err(&**k), v)));
+
+    Ok(())
+}
+
+fn print_histogram<'a>(entries: impl Iterator<Item = (Result<usize, &'a str>, usize)> + Clone) {
+    let max = entries.clone().map(|(_, x)| x).max().unwrap();
+    for (k, v) in entries {
+        match k {
+            Ok(i) => print!("{:2}: ", i),
+            Err(msg) => println!("{}", msg),
+        }
+        print!("{:5} ", v);
+        for _ in 0..(v * 50 / max) {
             print!("#");
         }
         println!();
     }
-
-    Ok(())
 }
