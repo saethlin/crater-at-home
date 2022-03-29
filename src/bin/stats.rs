@@ -21,7 +21,7 @@ fn main() -> Result<()> {
     }
 
     let mut times = vec![];
-    let mut states: HashMap<_, usize> = HashMap::new();
+    let mut states: HashMap<Vec<_>, usize> = HashMap::new();
     let mut errored = 0;
     for krate in crates.values() {
         match &krate.status {
@@ -31,8 +31,10 @@ fn main() -> Result<()> {
                 errored += 1;
                 continue;
             }
-            Status::UB { cause, .. } => {
-                *states.entry(cause).or_default() += 1;
+            Status::UB { cause: causes, .. } => {
+                *states
+                    .entry(causes.iter().map(|cause| cause.kind.clone()).collect())
+                    .or_default() += 1;
             }
         }
         let mut time = krate.time as usize / 60;
@@ -63,12 +65,12 @@ fn main() -> Result<()> {
     );
     println!();
     println!("histogram over kind of UB");
-    print_histogram(states.iter().map(|&(k, v)| (Err(&**k), v)));
+    print_histogram(states.iter().map(|(k, v)| (Err(format!("{:?}", k)), *v)));
 
     Ok(())
 }
 
-fn print_histogram<'a>(entries: impl Iterator<Item = (Result<usize, &'a str>, usize)> + Clone) {
+fn print_histogram(entries: impl Iterator<Item = (Result<usize, String>, usize)> + Clone) {
     let max = entries.clone().map(|(_, x)| x).max().unwrap();
     for (k, v) in entries {
         match k {

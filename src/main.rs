@@ -454,7 +454,16 @@ fn write_output(crates: &[Crate]) -> Result<()> {
             Status::Unknown => write!(output, "Unknown"),
             Status::Passing => write!(output, "Passing"),
             Status::Error(cause) => write!(output, "Error: {}", cause),
-            Status::UB { cause, .. } => write!(output, "UB: {}", cause),
+            Status::UB { cause: causes, .. } => {
+                write!(output, "UB: ")?;
+                for cause in causes {
+                    write!(output, "{}", cause.kind)?;
+                    if let Some(source_crate) = &cause.source_crate {
+                        write!(output, "{source_crate}")?;
+                    }
+                }
+                Ok(())
+            }
         }?;
         writeln!(output, "</div></div>")?;
     }
@@ -465,7 +474,7 @@ fn write_output(crates: &[Crate]) -> Result<()> {
     let mut output = File::create(".ub.html")?;
     writeln!(output, "{}", OUTPUT_HEADER)?;
     for c in crates {
-        if let Status::UB { cause, .. } = &c.status {
+        if let Status::UB { cause: causes, .. } = &c.status {
             write!(
             output,
             "<div class=\"row\" onclick=\"change_log(&quot;{}&quot;, &quot;{}&quot;)\"><div class=\"crate\">{} {}</div>",
@@ -473,7 +482,13 @@ fn write_output(crates: &[Crate]) -> Result<()> {
         )
             ?;
             write!(output, "<div class=\"status\">")?;
-            write!(output, "UB: {}", cause)?;
+            write!(output, "UB: ")?;
+            for cause in causes {
+                write!(output, "{}", cause.kind)?;
+                if let Some(source_crate) = &cause.source_crate {
+                    write!(output, "{source_crate}")?;
+                }
+            }
             writeln!(output, "</div></div>")?;
         }
     }
@@ -482,7 +497,7 @@ fn write_output(crates: &[Crate]) -> Result<()> {
     Ok(())
 }
 
-fn diagnose(output: &str) -> String {
+fn diagnose(output: &str) -> Vec<Cause> {
     let mut causes = Vec::new();
 
     let lines = output.lines().collect::<Vec<_>>();
@@ -504,35 +519,38 @@ fn diagnose(output: &str) -> String {
                 }
             })
             .unwrap();
+
+        let kind;
         if line.contains("uninitialized") {
-            causes.push("uninitialized memory".to_string());
+            kind = "uninitialized memory".to_string();
         } else if line.contains("out-of-bounds") {
-            causes.push("invalid pointer offset".to_string());
+            kind = "invalid pointer offset".to_string();
         } else if line.contains("null pointer is not a valid pointer for this operation") {
-            causes.push("null pointer dereference".to_string());
+            kind = "null pointer dereference".to_string();
         } else if line.contains("accessing memory with alignment") {
-            causes.push("misaligned pointer dereference".to_string());
+            kind = "misaligned pointer dereference".to_string();
         } else if line.contains("dangling reference") {
-            causes.push("dangling reference".to_string());
+            kind = "dangling reference".to_string();
         } else if line.contains("unaligned reference") {
-            causes.push("unaligned reference".to_string());
+            kind = "unaligned reference".to_string();
         } else if line.contains("incorrect layout on deallocation") {
-            causes.push("incorrect layout on deallocation".to_string());
+            kind = "incorrect layout on deallocation".to_string();
         } else if line.contains("borrow stack") || line.contains("reborrow") {
             if line.contains("<untagged>") {
-                causes.push("int-to-ptr cast".to_string());
+                kind = "int-to-ptr cast".to_string();
             } else {
-                causes.push(diagnose_sb(&lines[l..end]));
+                kind = diagnose_sb(&lines[l..end]);
             }
         } else {
-            causes.push(
-                line.split("Undefined Behavior: ")
-                    .nth(1)
-                    .unwrap()
-                    .trim()
-                    .to_string(),
-            );
+            kind = line
+                .split("Undefined Behavior: ")
+                .nth(1)
+                .unwrap()
+                .trim()
+                .to_string();
         }
+
+        let mut source_crate = None;
 
         for line in &lines[l..] {
             if line.contains("inside `") && line.contains(" at ") {
@@ -540,26 +558,25 @@ fn diagnose(output: &str) -> String {
                 if path.contains("workdir") || !path.starts_with("/") {
                     break;
                 } else if path.contains("/root/.cargo/registry/src/") {
-                    let source_crate = path
+                    let crate_name = path
                         .split("/root/.cargo/registry/src/github.com-1ecc6299db9ec823/")
                         .nth(1)
                         .unwrap()
                         .split("/")
                         .nth(0)
                         .unwrap();
-                    let last = causes.last().unwrap().to_string();
 
-                    *causes.last_mut().unwrap() = format!("{} ({})", last, source_crate);
+                    source_crate = Some(format!("{}", crate_name));
                     break;
                 }
             }
         }
+        causes.push(Cause { kind, source_crate })
     }
 
     causes.sort();
     causes.dedup();
-
-    causes.join(", ")
+    causes
 }
 
 fn diagnose_sb(lines: &[&str]) -> String {
