@@ -21,20 +21,29 @@ fn main() -> Result<()> {
     }
 
     let mut times = vec![];
+    let mut total_time = 0;
     let mut states: HashMap<_, usize> = HashMap::new();
     let mut errored = 0;
+    let mut ub = 0;
+    let mut known = 0;
     for krate in crates.values() {
+        total_time += krate.time;
         match &krate.status {
             Status::Unknown => continue,
-            Status::Passing => {}
+            Status::Passing => {
+                known += 1;
+            }
             Status::Error(_) => {
                 errored += 1;
+                known += 1;
                 continue;
             }
             Status::UB { cause: causes, .. } => {
                 for cause in causes {
                     *states.entry(cause.kind.clone()).or_default() += 1;
                 }
+                ub += 1;
+                known += 1;
             }
         }
         let mut time = krate.time as usize / 60;
@@ -47,12 +56,21 @@ fn main() -> Result<()> {
         }
         times[time] += 1;
     }
+    let time_per_crate = total_time / known;
 
     let mut states: Vec<_> = states.into_iter().collect();
     states.sort();
     states.sort_by_key(|(_, i)| usize::max_value() - *i);
 
-    println!("errored: {}", errored);
+    println!("errored: {errored} ({}%)", errored * 100 / known);
+    println!("ub: {ub} ({}%)", ub * 100 / known);
+    println!("done: {}%", known * 100 / crates.len() as u64);
+    let seconds_remaining = (crates.len() as u64 - known) * time_per_crate;
+    println!(
+        "time remaining: {}:{}",
+        seconds_remaining / 3600,
+        (seconds_remaining % 3600) / 60
+    );
     println!();
     println!("histogram over time taken to run each crate");
     print_histogram(
