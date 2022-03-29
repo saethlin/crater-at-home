@@ -22,15 +22,25 @@ fn main() -> Result<()> {
 
     let mut times = vec![];
     for krate in crates.values() {
-        let time = krate.time as usize / 60;
+        let mut time = krate.time as usize / 60;
+        let rm = krate.time as usize % 60;
+        if rm != 0 {
+            time += 1;
+        }
         if times.len() <= time {
             times.resize(time + 1, 0);
         }
         times[time] += 1;
     }
 
-    for (i, time) in times.iter().enumerate() {
-        println!("{}: {}", i, time);
+    let max = times.iter().skip(1).max().unwrap();
+
+    for (i, time) in times.iter().enumerate().skip(1) {
+        print!("{:2}: {:5} ", i, time);
+        for _ in 0..(time * 50 / max) {
+            print!("#");
+        }
+        println!();
     }
 
     Ok(())
