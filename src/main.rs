@@ -155,7 +155,7 @@ fn main() -> Result<()> {
                 let mut krate = if let Some(krate) = lock.crates.get(i) {
                     krate.clone()
                 } else {
-                    break;
+                    break Ok(());
                 };
 
                 drop(lock);
