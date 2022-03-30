@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 
 use color_eyre::eyre::Result;
@@ -23,7 +23,7 @@ fn main() -> Result<()> {
     let mut times = vec![];
     let mut total_time = 0;
     let mut states: HashMap<_, usize> = HashMap::new();
-    let mut errored = 0;
+    let mut errored: BTreeMap<&str, u64> = BTreeMap::new();
     let mut ub = 0;
     let mut known = 0;
     for krate in crates.values() {
@@ -33,10 +33,9 @@ fn main() -> Result<()> {
             Status::Passing => {
                 known += 1;
             }
-            Status::Error(_) => {
-                errored += 1;
+            Status::Error(err) => {
+                *errored.entry(err).or_default() += 1;
                 known += 1;
-                continue;
             }
             Status::UB { cause: causes, .. } => {
                 for cause in causes {
@@ -63,12 +62,19 @@ fn main() -> Result<()> {
     states.sort();
     states.sort_by_key(|(_, i)| usize::max_value() - *i);
 
-    println!("errored: {errored} ({}%)", errored * 100 / known);
+    for (error, count) in errored {
+        println!("error({error}): {count} ({}%)", count * 100 / known);
+    }
     println!("ub: {ub} ({}%)", ub * 100 / known);
     println!("done: {}%", known * 100 / crates.len() as u64);
     let seconds_remaining = (crates.len() as u64 - known) * time_per_crate;
     println!(
-        "time remaining: {}:{}",
+        "time per crate (MM:SS): {}:{}",
+        time_per_crate / 60,
+        time_per_crate % 60
+    );
+    println!(
+        "time remaining (HH:MM): {}:{}",
         seconds_remaining / 3600,
         (seconds_remaining % 3600) / 60
     );
