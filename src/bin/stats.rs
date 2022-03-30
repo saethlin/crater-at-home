@@ -40,7 +40,8 @@ fn main() -> Result<()> {
             }
             Status::UB { cause: causes, .. } => {
                 for cause in causes {
-                    *states.entry(cause.kind.clone()).or_default() += 1;
+                    let key: String = cause.kind.chars().filter(|c| !c.is_numeric()).collect();
+                    *states.entry(key).or_default() += 1;
                 }
                 ub += 1;
                 known += 1;
