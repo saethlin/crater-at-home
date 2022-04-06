@@ -459,8 +459,9 @@ fn write_output(crates: &[Crate]) -> Result<()> {
                 for cause in causes {
                     write!(output, "{}", cause.kind)?;
                     if let Some(source_crate) = &cause.source_crate {
-                        write!(output, "{source_crate}")?;
+                        write!(output, " ({source_crate})")?;
                     }
+                    write!(output, ",")?;
                 }
                 Ok(())
             }
