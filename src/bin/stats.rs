@@ -51,6 +51,10 @@ fn main() -> Result<()> {
         if rm != 0 {
             time += 1;
         }
+        assert!(
+            time < 60 * 24,
+            "looks like your crate took more than 24h to compute, that is probably a bug"
+        );
         if times.len() <= time {
             times.resize(time + 1, 0);
         }
