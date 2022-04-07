@@ -1,6 +1,7 @@
 use clap::Parser;
 use color_eyre::eyre::Result;
 use miri_the_world::{Crate, Status};
+use rayon::prelude::*;
 use std::{
     fs::{self, File},
     io::Write,
@@ -34,13 +35,14 @@ fn main() -> Result<()> {
 }
 
 fn render(crates: &[Crate]) -> Result<()> {
-    for krate in crates {
+    crates.par_iter().try_for_each(|krate| -> Result<()> {
         log::info!("Processing {} {}", krate.name, krate.version);
         let path = format!("logs/{}/{}", krate.name, krate.version);
         if let Ok(output) = fs::read_to_string(&path) {
             write_crate_output(krate, &output)?;
         }
-    }
+        Ok(())
+    })?;
 
     write_output(crates)
 }
