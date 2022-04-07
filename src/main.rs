@@ -74,7 +74,7 @@ fn main() -> Result<()> {
                             recent_downloads: c.recent_downloads,
                             version: c.max_version,
                             status: Status::Unknown,
-                            time: u64::max_value(),
+                            time: 0,
                         });
                     }
                 }
@@ -84,7 +84,7 @@ fn main() -> Result<()> {
                         recent_downloads: c.recent_downloads,
                         version: c.max_version,
                         status: Status::Unknown,
-                        time: u64::max_value(),
+                        time: 0,
                     });
                 }
             }
