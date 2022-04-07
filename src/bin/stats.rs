@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs;
 
 use color_eyre::eyre::Result;
-use miri_the_world::*;
+use miri_the_world::{Crate, Status};
 
 fn main() -> Result<()> {
     if std::env::var("RUST_BACKTRACE").is_err() {
