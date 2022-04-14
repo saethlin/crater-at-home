@@ -27,7 +27,11 @@ fn main() -> Result<()> {
     let mut ub = 0;
     let mut known = 0;
     for krate in crates.values() {
-        total_time += krate.time;
+        let crate_time = match krate.time {
+            Some(t) => t,
+            None => continue,
+        };
+        total_time += crate_time;
         match &krate.status {
             Status::Unknown => continue,
             Status::Passing => {
@@ -46,8 +50,8 @@ fn main() -> Result<()> {
                 known += 1;
             }
         }
-        let mut time = krate.time as usize / 60;
-        let rm = krate.time as usize % 60;
+        let mut time = crate_time as usize / 60;
+        let rm = crate_time as usize % 60;
         if rm != 0 {
             time += 1;
         }

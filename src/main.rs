@@ -6,6 +6,7 @@ use std::{
     collections::hash_map::Entry,
     collections::HashMap,
     fs,
+    io::Write,
     path::Path,
     sync::{Arc, Mutex},
 };
@@ -74,7 +75,7 @@ fn main() -> Result<()> {
                             recent_downloads: c.recent_downloads,
                             version: c.max_version,
                             status: Status::Unknown,
-                            time: 0,
+                            time: None,
                         });
                     }
                 }
@@ -84,7 +85,7 @@ fn main() -> Result<()> {
                         recent_downloads: c.recent_downloads,
                         version: c.max_version,
                         status: Status::Unknown,
-                        time: 0,
+                        time: None,
                     });
                 }
             }
@@ -187,7 +188,7 @@ fn main() -> Result<()> {
                     .wrap_err("failed to execute docker")?;
 
                 let end = std::time::Instant::now();
-                krate.time = (end - start).as_secs();
+                krate.time = Some((end - start).as_secs());
 
                 let output = String::from_utf8_lossy(&res.stdout);
 
@@ -216,6 +217,28 @@ fn main() -> Result<()> {
         t.join()
             .map_err(|e| *e.downcast::<ErrReport>().unwrap())??;
     }
+
+    log::info!("dumping info to `crates.json`");
+
+    let crates = Arc::try_unwrap(cursor)
+        .map_err(|_| eyre!("all threads joined, but Arc still shared?"))?
+        .into_inner()
+        .map_err(|_| eyre!("some thread panicked and poisoned our mutex"))?
+        .crates;
+
+    ensure!(
+        !Path::new(".crates.json").exists(),
+        "lock file already exists"
+    );
+
+    let mut file = fs::File::create(".crates.json")?;
+    for krate in crates {
+        serde_json::to_writer(&mut file, &krate)?;
+        file.write(b"\n")?;
+    }
+    fs::copy("crates.json", "crates.json.bak")?;
+    fs::copy(".crates.json", "crates.json")?;
+    fs::remove_file(".crates.json")?;
 
     Ok(())
 }

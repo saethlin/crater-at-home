@@ -8,9 +8,9 @@ pub struct Crate {
     pub recent_downloads: Option<u64>,
     pub version: String,
     pub status: Status,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Time that the run took, in seconds
-    pub time: u64,
+    pub time: Option<u64>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -19,7 +19,11 @@ pub enum Status {
     Passing,
     Error(String),
     UB {
-        #[serde(deserialize_with = "cause_version_remap")]
+        #[serde(
+            deserialize_with = "cause_version_remap",
+            default,
+            skip_serializing_if = "Vec::is_empty"
+        )]
         cause: Vec<Cause>,
         status: String,
     },
@@ -68,5 +72,6 @@ where
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Ord, Eq, PartialEq, PartialOrd)]
 pub struct Cause {
     pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_crate: Option<String>,
 }
