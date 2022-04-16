@@ -1,14 +1,13 @@
-use clap::Parser;
 use color_eyre::eyre::Result;
-use miri_the_world::{Crate, Status};
+use miri_the_world::*;
 use rayon::prelude::*;
 use std::{
+    fmt::Write as FmtWrite,
     fs::{self, File},
     io::Write,
 };
 
-#[derive(Parser)]
-struct Args {}
+use miri_the_world::load_completed_crates;
 
 fn main() -> Result<()> {
     if std::env::var("RUST_BACKTRACE").is_err() {
@@ -20,16 +19,7 @@ fn main() -> Result<()> {
     env_logger::init();
     color_eyre::install()?;
 
-    let _args = Args::parse();
-
-    let mut crates = Vec::new();
-
-    for line in fs::read_to_string("crates.json")?.lines() {
-        let krate: Crate = serde_json::from_str(&line)?;
-        crates.push(krate);
-    }
-
-    crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
+    let crates = load_completed_crates()?;
 
     render(&crates)
 }
@@ -227,7 +217,7 @@ Click on a crate to the right to display its build log
 "#;
 
 fn write_output(crates: &[Crate]) -> Result<()> {
-    let mut output = File::create(".index.html")?;
+    let mut output = String::new();
     writeln!(output, "{}", OUTPUT_HEADER)?;
     for c in crates {
         log::info!("Rendering {} {}", c.name, c.version);
@@ -249,8 +239,10 @@ fn write_output(crates: &[Crate]) -> Result<()> {
                     if let Some(source_crate) = &cause.source_crate {
                         write!(output, " ({source_crate})")?;
                     }
-                    write!(output, ",")?;
+                    write!(output, ", ")?;
                 }
+                output.pop();
+                output.pop();
                 Ok(())
             }
         }?;
@@ -258,9 +250,10 @@ fn write_output(crates: &[Crate]) -> Result<()> {
     }
     write!(output, "</div></body></html>")?;
 
+    fs::write(".index.html", output)?;
     fs::rename(".index.html", "index.html")?;
 
-    let mut output = File::create(".ub.html")?;
+    let mut output = String::new();
     writeln!(output, "{}", OUTPUT_HEADER)?;
     for c in crates {
         if let Status::UB { cause: causes, .. } = &c.status {
@@ -275,13 +268,17 @@ fn write_output(crates: &[Crate]) -> Result<()> {
             for cause in causes {
                 write!(output, "{}", cause.kind)?;
                 if let Some(source_crate) = &cause.source_crate {
-                    write!(output, "{source_crate}")?;
+                    write!(output, " ({source_crate})")?;
                 }
+                write!(output, ", ")?;
             }
+            output.pop();
+            output.pop();
             writeln!(output, "</div></div>")?;
         }
     }
 
+    fs::write(".ub.html", output)?;
     fs::rename(".ub.html", "ub.html")?;
     Ok(())
 }
