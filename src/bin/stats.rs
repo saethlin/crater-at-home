@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, HashMap};
-use std::fs;
 
 use color_eyre::eyre::Result;
-use miri_the_world::{Crate, Status};
+use miri_the_world::{load_completed_crates, Status};
+use regex::Regex;
 
 fn main() -> Result<()> {
     if std::env::var("RUST_BACKTRACE").is_err() {
@@ -14,11 +14,12 @@ fn main() -> Result<()> {
     env_logger::init();
     color_eyre::install()?;
 
-    let mut crates = HashMap::new();
-    for line in fs::read_to_string("crates.json")?.lines() {
-        let krate: Crate = serde_json::from_str(&line)?;
-        crates.insert(krate.name.clone(), krate);
-    }
+    let crates = load_completed_crates()?;
+
+    let tag_re = Regex::new("<\\d+>").unwrap();
+    let alloc_re = Regex::new("alloc\\d+").unwrap();
+    let offset_re = Regex::new("alloc\\d+\\[0x\\d+\\]").unwrap();
+    let call_re = Regex::new("call \\d+").unwrap();
 
     let mut times = vec![];
     let mut total_time = 0;
@@ -26,7 +27,7 @@ fn main() -> Result<()> {
     let mut errored: BTreeMap<&str, u64> = BTreeMap::new();
     let mut ub = 0;
     let mut known = 0;
-    for krate in crates.values() {
+    for krate in crates.iter() {
         let crate_time = match krate.time {
             Some(t) => t,
             None => continue,
@@ -38,13 +39,17 @@ fn main() -> Result<()> {
                 known += 1;
             }
             Status::Error(err) => {
-                *errored.entry(err).or_default() += 1;
+                *errored.entry(&err).or_default() += 1;
                 known += 1;
             }
             Status::UB { cause: causes, .. } => {
                 for cause in causes {
-                    let key: String = cause.kind.chars().filter(|c| !c.is_numeric()).collect();
-                    *states.entry(key).or_default() += 1;
+                    let mut cause = cause.clone();
+                    cause.kind = tag_re.replace_all(&cause.kind, "<tag>").to_string();
+                    cause.kind = offset_re.replace_all(&cause.kind, "offset").to_string();
+                    cause.kind = alloc_re.replace_all(&cause.kind, "alloc").to_string();
+                    cause.kind = call_re.replace_all(&cause.kind, "call").to_string();
+                    *states.entry(cause.kind.clone()).or_default() += 1;
                 }
                 ub += 1;
                 known += 1;
@@ -74,7 +79,6 @@ fn main() -> Result<()> {
         println!("error({error}): {count} ({}%)", count * 100 / known);
     }
     println!("ub: {ub} ({}%)", ub * 100 / known);
-    println!("done: {}%", known * 100 / crates.len() as u64);
     let seconds_remaining = (crates.len() as u64 - known) * time_per_crate;
     println!(
         "time per crate (MM:SS): {}:{}",
