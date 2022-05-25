@@ -2,10 +2,17 @@ use crate::{Cause, Crate, Status};
 use std::fs;
 
 use color_eyre::Result;
+use once_cell::sync::Lazy;
+use regex::Regex;
+
+static ANSI_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new("\x1b(\\[[0-9;?]*[A-HJKSTfhilmnsu]|\\(B)").unwrap());
 
 pub fn diagnose(krate: &mut Crate) -> Result<()> {
     let path = format!("logs/{}/{}", krate.name, krate.version);
     if let Ok(output) = fs::read_to_string(&path) {
+        let output = ANSI_REGEX.replace_all(&output, "").to_string();
+        // Strip ANSI escape codes from the output;
         krate.status = if output.contains("Undefined Behavior: ") {
             Status::UB {
                 cause: diagnose_output(&output),
@@ -48,7 +55,7 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
             .unwrap();
 
         let kind;
-        if line.contains("uninitialized") {
+        if line.contains("encountered uninitialized bytes") {
             kind = "uninitialized memory".to_string();
         } else if line.contains("out-of-bounds") {
             kind = "invalid pointer offset".to_string();
@@ -63,6 +70,10 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
             kind = "unaligned reference".to_string();
         } else if line.contains("incorrect layout on deallocation") {
             kind = "incorrect layout on deallocation".to_string();
+        } else if line.contains("attempting a write access")
+            && line.contains("only grants SharedReadOnly")
+        {
+            kind = "SB-write-via-&".to_string();
         } else if line.contains("borrow stack") || line.contains("reborrow") {
             if line.contains("<untagged>") {
                 kind = "int-to-ptr cast".to_string();
@@ -74,6 +85,9 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
             && line.contains("expected initialized plain (non-pointer) bytes")
         {
             kind = "ptr-int transmute".to_string();
+        } else if line.contains("type validation failed") {
+            let second = line.split(": encountered").nth(1).unwrap().trim();
+            kind = format!("type validation failed: encountered {}", second);
         } else {
             kind = line
                 .split("Undefined Behavior: ")
