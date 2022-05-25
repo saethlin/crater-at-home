@@ -4,15 +4,53 @@ use color_eyre::eyre::{ensure, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use miri_the_world::*;
 use rayon::prelude::*;
+use std::fmt;
 use std::fs;
+use std::str::FromStr;
 
 #[derive(Parser)]
 struct Args {
-    #[clap(long, default_value_t = 10000)]
+    #[clap(long)]
     crates: usize,
 
     #[clap(long, default_value_t = 8)]
     memory_limit_gb: usize,
+
+    #[clap(long, default_value_t = RerunWhen::LockfileChanged)]
+    rerun_when: RerunWhen,
+}
+
+enum RerunWhen {
+    Always,
+    Never,
+    LockfileChanged,
+}
+
+impl FromStr for RerunWhen {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "always" => Ok(RerunWhen::Always),
+            "never" => Ok(RerunWhen::Never),
+            "lockfile-changed" => Ok(RerunWhen::LockfileChanged),
+            _ => Err("invalid rerun-when option"),
+        }
+    }
+}
+
+impl fmt::Display for RerunWhen {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                RerunWhen::Always => "always",
+                RerunWhen::Never => "never",
+                RerunWhen::LockfileChanged => "lockfile-changed",
+            }
+        )
+    }
 }
 
 fn main() -> Result<()> {
@@ -43,9 +81,19 @@ fn main() -> Result<()> {
     let crates = crates
         .into_par_iter()
         .filter(|krate| {
+            // Keep all crates if rerun-when=always
+            if let RerunWhen::Always = args.rerun_when {
+                return true;
+            }
+
             if let Ok(contents) =
                 fs::read_to_string(format!("logs/{}/{}", krate.name, krate.version))
             {
+                // Skip crates if a log exists and rerun-when=never
+                if let RerunWhen::Never = args.rerun_when {
+                    return false;
+                }
+
                 let previous_lockfile = contents.rsplit("cat Cargo.lock\r\n").nth(0).unwrap();
                 let previous_lockfile = previous_lockfile.replace("\r\n", "\n");
 
