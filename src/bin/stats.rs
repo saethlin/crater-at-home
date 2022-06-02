@@ -1,8 +1,15 @@
 use std::collections::{BTreeMap, HashMap};
 
+use clap::Parser;
 use color_eyre::eyre::Result;
 use miri_the_world::{load_completed_crates, Status};
 use regex::Regex;
+
+#[derive(Parser)]
+struct Args {
+    #[clap(long)]
+    by_source_crate: bool,
+}
 
 fn main() -> Result<()> {
     if std::env::var("RUST_BACKTRACE").is_err() {
@@ -14,12 +21,15 @@ fn main() -> Result<()> {
     env_logger::init();
     color_eyre::install()?;
 
+    let args = Args::parse();
+
     let crates = load_completed_crates()?;
 
     let tag_re = Regex::new("<\\d+>").unwrap();
     let alloc_re = Regex::new("alloc\\d+").unwrap();
     let offset_re = Regex::new("alloc\\d+\\[0x\\d+\\]").unwrap();
     let call_re = Regex::new("call \\d+").unwrap();
+    let hex_re = Regex::new("0x[0-9a-f]+").unwrap();
 
     let mut times = vec![];
     let mut total_time = 0;
@@ -49,7 +59,13 @@ fn main() -> Result<()> {
                     cause.kind = offset_re.replace_all(&cause.kind, "offset").to_string();
                     cause.kind = alloc_re.replace_all(&cause.kind, "alloc").to_string();
                     cause.kind = call_re.replace_all(&cause.kind, "call").to_string();
-                    *states.entry(cause.kind.clone()).or_default() += 1;
+                    cause.kind = hex_re.replace_all(&cause.kind, "[hex]").to_string();
+                    let total_cause = if args.by_source_crate && cause.source_crate.is_some() {
+                        format!("{} {}", cause.kind, cause.source_crate.unwrap())
+                    } else {
+                        cause.kind.clone()
+                    };
+                    *states.entry(total_cause).or_default() += 1;
                 }
                 ub += 1;
                 known += 1;
