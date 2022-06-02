@@ -26,7 +26,6 @@ fn main() -> Result<()> {
 
 fn render(crates: &[Crate]) -> Result<()> {
     crates.par_iter().try_for_each(|krate| -> Result<()> {
-        log::info!("Processing {} {}", krate.name, krate.version);
         let path = format!("logs/{}/{}", krate.name, krate.version);
         if let Ok(output) = fs::read_to_string(&path) {
             write_crate_output(krate, &output)?;
@@ -71,21 +70,14 @@ function scroll_to_ub() {{
 }
 
 fn write_crate_output(krate: &Crate, output: &str) -> Result<()> {
-    let mut encoded = String::new();
-    let mut found_ub = false;
-    for mut line in output.lines() {
-        while let Some(pos) = line.find('\r') {
-            line = &line[pos + 1..];
-        }
-        if !found_ub && line.contains("Undefined Behavior:") {
-            found_ub = true;
-            encoded.push_str("</pre><pre id=\"ub\">\n");
-        }
-        let line = ansi_to_html::convert_escaped(line.trim())?;
-        let line = line.replace("\u{1b}(B</span>", "</span>");
-        encoded.push_str(&line);
-        encoded.push('\n');
-    }
+    let output = output.replace("\r\n", "\n");
+    let encoded = ansi_to_html::convert_escaped(&output)?;
+
+    let encoded = encoded.replacen(
+        "Undefined Behavior:",
+        "</pre><pre id=\"ub\">Undefined Behavior:",
+        1,
+    );
 
     fs::create_dir_all(format!("logs/{}", krate.name))?;
 
@@ -220,7 +212,6 @@ fn write_output(crates: &[Crate]) -> Result<()> {
     let mut output = String::new();
     writeln!(output, "{}", OUTPUT_HEADER)?;
     for c in crates {
-        log::info!("Rendering {} {}", c.name, c.version);
         write!(
             output,
             "<div class=\"row\" onclick=\"change_log(&quot;{}&quot;, &quot;{}&quot;)\"><div class=\"crate\">{} {}</div>",
