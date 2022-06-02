@@ -169,7 +169,7 @@ fn main() -> Result<()> {
             bar.println(format!("Running {} {}", krate.name, krate.version));
 
             let miri_flags =
-                "MIRIFLAGS=-Zmiri-strict-provenance -Zmiri-disable-isolation -Zmiri-ignore-leaks \
+                "MIRIFLAGS=-Zmiri-tag-raw-pointers -Zmiri-disable-isolation -Zmiri-ignore-leaks \
                      -Zmiri-panic-on-unsupported";
 
             let res = std::process::Command::new("docker")
