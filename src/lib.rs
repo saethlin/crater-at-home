@@ -175,6 +175,8 @@ fn unpack_without_first_dir<R: Read>(archive: &mut Archive<R>, path: &Path) -> R
 pub fn load_completed_crates() -> Result<Vec<Crate>, Report> {
     let mut crates = HashMap::new();
 
+    log::info!("Scanning logs directory for completed runs");
+
     for entry in std::fs::read_dir("logs")? {
         let entry = entry?;
         let mut versions = Vec::new();
