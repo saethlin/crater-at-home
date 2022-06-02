@@ -70,6 +70,8 @@ fn main() -> Result<()> {
 
     fs::create_dir_all("logs")?;
 
+    log::info!("Building list of crates to run");
+
     let bar = ProgressBar::new(args.crates as u64);
     bar.set_style(
         ProgressStyle::default_bar()
@@ -142,19 +144,11 @@ fn main() -> Result<()> {
                 };
 
                 if new_lockfile == previous_lockfile {
-                    bar.println(&format!(
-                        "Lockfile unchanged for {} {}",
-                        krate.name, krate.version
-                    ));
                     bar.inc(1);
                     return false;
                 }
             }
 
-            bar.println(&format!(
-                "Lockfile changed for {} {}",
-                krate.name, krate.version
-            ));
             bar.inc(1);
             true
         })
@@ -184,7 +178,7 @@ fn main() -> Result<()> {
                     "--rm",
                     "--tty",
                     "--env",
-                    "RUSTFLAGS=-Zrandomize-layout",
+                    "RUSTFLAGS=-Zrandomize-layout --cap-lints allow",
                     "--env",
                     "RUST_BACKTRACE=0",
                     "--env",
