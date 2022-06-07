@@ -1,11 +1,7 @@
 use color_eyre::eyre::Result;
 use miri_the_world::*;
 use rayon::prelude::*;
-use std::{
-    fmt::Write as FmtWrite,
-    fs::{self, File},
-    io::Write,
-};
+use std::{fmt::Write, fs, path::PathBuf};
 
 use miri_the_world::load_completed_crates;
 
@@ -81,9 +77,18 @@ fn write_crate_output(krate: &Crate, output: &str) -> Result<()> {
 
     fs::create_dir_all(format!("logs/{}", krate.name))?;
 
-    let mut file = File::create(format!("logs/{}/{}.html", krate.name, krate.version))?;
+    let path = PathBuf::from(format!("logs/{}/{}.html", krate.name, krate.version));
+    let html = format!(log_format!(), krate.name, krate.version, encoded);
 
-    write!(file, log_format!(), krate.name, krate.version, encoded)?;
+    if path.exists() {
+        let previous = std::fs::read_to_string(&path)?;
+        if previous != html {
+            std::fs::write(path, html)?;
+        }
+    } else {
+        std::fs::write(path, html)?;
+    }
+
     Ok(())
 }
 
