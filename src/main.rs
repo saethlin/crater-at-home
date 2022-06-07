@@ -11,7 +11,7 @@ use std::str::FromStr;
 #[derive(Parser)]
 struct Args {
     /// Run the top `n` most-recently-downloaded crates
-    #[clap(long, conflicts_with = "crate_list")]
+    #[clap(long, conflicts_with = "crate-list")]
     crates: Option<usize>,
 
     /// A path to a file containing a whitespace-separated list of crates to run
