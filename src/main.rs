@@ -10,8 +10,13 @@ use std::str::FromStr;
 
 #[derive(Parser)]
 struct Args {
-    #[clap(long)]
-    crates: usize,
+    /// Run the top `n` most-recently-downloaded crates
+    #[clap(long, conflicts_with = "crate_list")]
+    crates: Option<usize>,
+
+    /// A path to a file containing a whitespace-separated list of crates to run
+    #[clap(long, conflicts_with = "crates")]
+    crate_list: Option<String>,
 
     #[clap(long, default_value_t = 8)]
     memory_limit_gb: usize,
@@ -65,14 +70,30 @@ fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    let mut crates = db_dump::download()?;
-    crates.truncate(args.crates);
+    let all_crates = db_dump::download()?;
+    let crates = if let Some(crate_count) = args.crates {
+        let mut crates = all_crates.clone();
+        crates.truncate(crate_count);
+        crates
+    } else {
+        let crate_list = args.crate_list.clone().unwrap();
+        let mut crates = Vec::new();
+        for name in fs::read_to_string(&crate_list)?.split_whitespace() {
+            // Yeah yeah O(n^2)
+            for c in &all_crates {
+                if c.name == name {
+                    crates.push(c.clone());
+                }
+            }
+        }
+        crates
+    };
 
     fs::create_dir_all("logs")?;
 
     log::info!("Building list of crates to run");
 
-    let bar = ProgressBar::new(args.crates as u64);
+    let bar = ProgressBar::new(crates.len() as u64);
     bar.set_style(
         ProgressStyle::default_bar()
             .template("[{elapsed_precise}/{duration_precise}] {wide_bar} {pos}/{len}"),
