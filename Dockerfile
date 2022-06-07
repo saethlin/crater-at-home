@@ -15,6 +15,7 @@ RUN rustup default miri
 RUN rustup toolchain remove stable
 RUN apt-get update && apt-get install -y time
 WORKDIR /root
+RUN cargo +miri miri setup
 RUN echo "exec 2>&1" >> run.sh && \
     echo "set -v" >> run.sh && \
     echo "cargo download --extract --output=/root/build \$1 || exit 1" >> run.sh && \
