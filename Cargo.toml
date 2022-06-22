@@ -27,6 +27,8 @@ csv = "1.1.6"
 fxhash = "0.2.1"
 indicatif = "0.16.2"
 regex = "1.5.5"
+uuid = { version = "1.1.2", features = ["v4"] }
+num_cpus = "1.13.1"
 
 [profile.release]
 debug = 1

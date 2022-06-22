@@ -9,7 +9,7 @@ This crate uses `clap`; run `cargo run -- --help` for CLI options.
 * install docker (`sudo apt install docker.io`, `sudo pacman -S docker`, etc.)
 * add yourself to docker group (`sudo adduser $USER docker`)
 * re-login or `newgrp docker` to make your shell know about docker
-* setup docker image (`docker build -t miri - < Dockerfile`)
+* setup docker image (`docker build -t miri docker/ < docker/Dockerfile`)
 * `cargo run -- --crates=n`
 * have lots of patience
 
