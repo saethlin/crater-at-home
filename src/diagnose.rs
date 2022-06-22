@@ -55,7 +55,9 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
             .unwrap();
 
         let kind;
-        if line.contains("encountered uninitialized bytes") {
+        if line.contains("Data race detected") {
+            kind = "data race".to_string()
+        } else if line.contains("encountered uninitialized bytes") {
             kind = "uninitialized memory".to_string();
         } else if line.contains("out-of-bounds") {
             kind = "invalid pointer offset".to_string();
