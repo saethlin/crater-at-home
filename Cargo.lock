@@ -558,6 +558,7 @@ dependencies = [
  "indicatif",
  "lazy_static",
  "log",
+ "num_cpus",
  "once_cell",
  "rayon",
  "regex",
@@ -568,6 +569,7 @@ dependencies = [
  "tar",
  "tempfile",
  "ureq",
+ "uuid",
 ]
 
 [[package]]
@@ -1082,6 +1084,15 @@ dependencies = [
  "idna",
  "matches",
  "percent-encoding",
+]
+
+[[package]]
+name = "uuid"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd6469f4314d5f1ffec476e05f17cc9a78bc7a27a6a857842170bdf8d6f98d2f"
+dependencies = [
+ "getrandom",
 ]
 
 [[package]]

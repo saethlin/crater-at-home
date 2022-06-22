@@ -26,5 +26,5 @@ jobs:
 
       - name: Run
         run: |
-          docker build . -t miri:latest
+          docker build docker/ -t miri:latest < docker/Dockerfile
           cargo run -- --crates=1

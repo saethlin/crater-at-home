@@ -1,12 +1,16 @@
 use backoff::{retry, ExponentialBackoff};
 use clap::Parser;
-use color_eyre::eyre::{ensure, Context, Result};
+use color_eyre::eyre::Result;
 use indicatif::{ProgressBar, ProgressStyle};
 use miri_the_world::*;
 use rayon::prelude::*;
+use std::collections::HashSet;
 use std::fmt;
 use std::fs;
+use std::io::{BufRead, BufReader, Write};
+use std::process::Stdio;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 
 #[derive(Parser)]
 struct Args {
@@ -76,17 +80,12 @@ fn main() -> Result<()> {
         crates.truncate(crate_count);
         crates
     } else {
-        let crate_list = args.crate_list.clone().unwrap();
-        let mut crates = Vec::new();
-        for name in fs::read_to_string(&crate_list)?.split_whitespace() {
-            // Yeah yeah O(n^2)
-            for c in &all_crates {
-                if c.name == name {
-                    crates.push(c.clone());
-                }
-            }
-        }
-        crates
+        let crate_list = fs::read_to_string(&args.crate_list.clone().unwrap())?;
+        let crate_list: HashSet<_> = crate_list.trim().split_whitespace().collect();
+        all_crates
+            .into_iter()
+            .filter(|c| crate_list.contains(c.name.as_str()))
+            .collect()
     };
 
     fs::create_dir_all("logs")?;
@@ -98,8 +97,6 @@ fn main() -> Result<()> {
         ProgressStyle::default_bar()
             .template("[{elapsed_precise}/{duration_precise}] {wide_bar} {pos}/{len}"),
     );
-    bar.enable_steady_tick(1);
-    bar.set_draw_rate(1);
 
     let crates = crates
         .into_par_iter()
@@ -181,53 +178,92 @@ fn main() -> Result<()> {
         ProgressStyle::default_bar()
             .template("[{elapsed_precise}/{duration_precise}] {wide_bar} {pos}/{len}"),
     );
-    bar.enable_steady_tick(1);
-    bar.set_draw_rate(1);
 
-    crates
-        .into_par_iter()
-        .map(|krate| {
-            bar.println(format!("Running {} {}", krate.name, krate.version));
-
-            let miri_flags =
-                "MIRIFLAGS=-Zmiri-tag-raw-pointers -Zmiri-disable-isolation -Zmiri-ignore-leaks \
+    let miri_flags = "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks \
                      -Zmiri-panic-on-unsupported";
 
-            let res = std::process::Command::new("docker")
-                .args(&[
-                    "run",
-                    "--rm",
-                    "--tty",
-                    "--env",
-                    "RUSTFLAGS=-Zrandomize-layout --cap-lints allow",
-                    "--env",
-                    "RUST_BACKTRACE=0",
-                    "--env",
-                    miri_flags,
-                    &format!("--memory={}g", args.memory_limit_gb),
-                    "miri:latest",
-                    &format!("{}=={}", krate.name, krate.version),
-                ])
-                .output()
-                .wrap_err("failed to execute docker")?;
+    // Reverse the sort order, most-downloaded last
+    let crates = crates.into_iter().rev().collect::<Vec<_>>();
+    let crates = Arc::new(Mutex::new(crates));
 
-            let output = String::from_utf8_lossy(&res.stdout);
+    let test_end_delimiter = uuid::Uuid::new_v4().to_string();
 
-            // The container is supposed to redirect everything to stdout
-            ensure!(
-                res.stderr.is_empty(),
-                "{}",
-                String::from_utf8_lossy(&res.stderr)
-            );
+    let mut threads = Vec::new();
+    for _ in 0..num_cpus::get() / 2 {
+        let bar = bar.clone();
+        let crates = crates.clone();
+        let test_end_delimiter = test_end_delimiter.clone();
 
-            fs::create_dir_all(format!("logs/{}", krate.name))?;
-            fs::write(format!("logs/{}/{}", krate.name, krate.version), &*output)?;
+        let child = std::process::Command::new("docker")
+            .args(&[
+                "run",
+                "--rm",
+                "--interactive",
+                "--cpu-shares=2",
+                "--env",
+                "RUSTFLAGS=-Zrandomize-layout --cap-lints allow -Copt-level=0 -Cdebuginfo=0",
+                "--env",
+                "RUSTDOCFLAGS=--color=always",
+                "--env",
+                "CARGO_INCREMENTAL=0",
+                "--env",
+                "RUST_BACKTRACE=0",
+                "--env",
+                miri_flags,
+                "--env",
+                "TEST_TIMEOUT=900",
+                "--env",
+                &format!("TEST_END_DELIMITER={}", test_end_delimiter),
+                &format!("--memory={}g", args.memory_limit_gb),
+                "miri:latest",
+            ])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        let mut stdin = child.stdin.unwrap();
+
+        let mut stdout = BufReader::new(child.stdout.unwrap());
+
+        let handle = std::thread::spawn(move || loop {
+            let krate = match crates.lock().unwrap().pop() {
+                None => break,
+                Some(krate) => krate,
+            };
+
+            bar.println(format!("Running {} {}", krate.name, krate.version));
+
+            stdin
+                .write_all(format!("{}=={}\n", krate.name, krate.version).as_bytes())
+                .unwrap();
+
+            let mut output = String::new();
+            loop {
+                let bytes_read = stdout.read_line(&mut output).unwrap();
+                if output.trim_end().ends_with(&test_end_delimiter) {
+                    output.truncate(output.len() - test_end_delimiter.len() - 1);
+                    break;
+                }
+                if bytes_read == 0 {
+                    break;
+                }
+            }
+
+            fs::create_dir_all(format!("logs/{}", krate.name)).unwrap();
+            fs::write(format!("logs/{}/{}", krate.name, krate.version), &*output).unwrap();
             bar.inc(1);
             bar.println(format!("Finished {} {}", krate.name, krate.version));
+        });
+        threads.push(handle);
+    }
 
-            Ok(())
-        })
-        .collect::<Result<_>>()?;
+    for t in threads {
+        t.join().unwrap();
+    }
+
+    log::info!("done!");
 
     Ok(())
 }
