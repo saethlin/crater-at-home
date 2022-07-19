@@ -14,7 +14,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
     cargo +miri miri setup
 
 RUN apt-get update && \
-    apt-get install -y time clang lld && \
+    apt-get install -y time clang lld expect && \
     rm -rf /var/lib/apt/lists/*
 
 COPY config.toml /root/.cargo/config.toml
