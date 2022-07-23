@@ -226,7 +226,7 @@ pub fn load_completed_crates() -> Result<Vec<Crate>, Report> {
         }
     }
 
-    let crates = crates.values().cloned().collect::<Vec<_>>();
-
+    let mut crates = crates.values().cloned().collect::<Vec<_>>();
+    crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
     Ok(crates)
 }
