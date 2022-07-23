@@ -1,4 +1,4 @@
-use crate::{Crate, Status};
+use crate::{Crate, Status, Version};
 
 use color_eyre::Result;
 use flate2::read::GzDecoder;
@@ -84,7 +84,7 @@ pub fn download() -> Result<Vec<crate::Crate>> {
             num_to_name.get(&krate.crate_id).map(|name| Crate {
                 name: name.clone(),
                 recent_downloads: Some(krate.recent_downloads),
-                version: krate.version.to_string(),
+                version: krate.version,
                 status: Status::Unknown,
                 time: None,
             })
@@ -137,21 +137,6 @@ struct VersionsRecord {
     _yanked: String,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
-enum Version {
-    Parsed(semver::Version),
-    Unparsed(String),
-}
-
-impl Version {
-    fn to_string(&self) -> String {
-        match self {
-            Version::Parsed(v) => v.to_string(),
-            Version::Unparsed(v) => v.to_string(),
-        }
-    }
-}
-
 fn decode_versions(csv: &[u8]) -> Result<FxHashMap<u64, PublishedCrate>> {
     let mut map = FxHashMap::default();
 
@@ -163,9 +148,7 @@ fn decode_versions(csv: &[u8]) -> Result<FxHashMap<u64, PublishedCrate>> {
             PublishedCrate {
                 crate_id: record.crate_id,
                 recent_downloads: 0,
-                version: semver::Version::parse(&record.num)
-                    .map(Version::Parsed)
-                    .unwrap_or_else(|_| Version::Unparsed(record.num)),
+                version: Version::parse(&record.num),
             },
         );
     }

@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
@@ -7,85 +8,63 @@ use std::path::Path;
 use color_eyre::Report;
 use flate2::read::GzDecoder;
 use once_cell::sync::Lazy;
-use serde::de::Visitor;
-use tar::Archive;
-
 pub mod db_dump;
 pub mod diagnose;
 
 use diagnose::diagnose;
+use tar::Archive;
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone)]
 pub struct Crate {
     pub name: String,
     pub recent_downloads: Option<u64>,
-    pub version: String,
+    pub version: Version,
     pub status: Status,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Time that the run took, in seconds
     pub time: Option<u64>,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
+pub enum Version {
+    Parsed(semver::Version),
+    Unparsed(String),
+}
+
+impl Version {
+    pub fn parse(s: &str) -> Self {
+        semver::Version::parse(s)
+            .map(Version::Parsed)
+            .unwrap_or_else(|_| Version::Unparsed(s.to_string()))
+    }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Version::Parsed(v) => v.to_string(),
+            Version::Unparsed(v) => v.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for Version {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Version::Parsed(v) => write!(f, "{}", v),
+            Version::Unparsed(v) => write!(f, "{}", v),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum Status {
     Unknown,
     Passing,
     Error(String),
-    UB {
-        #[serde(
-            deserialize_with = "cause_version_remap",
-            default,
-            skip_serializing_if = "Vec::is_empty"
-        )]
-        cause: Vec<Cause>,
-        status: String,
-    },
+    UB { cause: Vec<Cause>, status: String },
 }
 
-fn cause_version_remap<'de, D>(deserializer: D) -> Result<Vec<Cause>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    struct StringOrStruct;
-
-    impl<'de> Visitor<'de> for StringOrStruct {
-        type Value = Vec<Cause>;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("string or map")
-        }
-
-        fn visit_str<E>(self, value: &str) -> Result<Vec<Cause>, E>
-        where
-            E: serde::de::Error,
-        {
-            let mut causes = Vec::new();
-            for cause in value.split(',') {
-                let mut splits = cause.split_terminator('(');
-                let kind = splits.next().unwrap_or_default().trim().to_string();
-                let source_crate = splits
-                    .next()
-                    .map(|s| s.trim_end_matches(')').trim().to_string());
-                causes.push(Cause { kind, source_crate })
-            }
-            Ok(causes)
-        }
-
-        fn visit_seq<M>(self, map: M) -> Result<Vec<Cause>, M::Error>
-        where
-            M: serde::de::SeqAccess<'de>,
-        {
-            serde::Deserialize::deserialize(serde::de::value::SeqAccessDeserializer::new(map))
-        }
-    }
-
-    deserializer.deserialize_any(StringOrStruct)
-}
-
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, Ord, Eq, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Ord, Eq, PartialEq, PartialOrd)]
 pub struct Cause {
     pub kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_crate: Option<String>,
 }
 
@@ -173,80 +152,81 @@ fn unpack_without_first_dir<R: Read>(archive: &mut Archive<R>, path: &Path) -> R
 }
 
 pub fn load_completed_crates() -> Result<Vec<Crate>, Report> {
-    let mut crates = HashMap::new();
-
     log::info!("Scanning logs directory for completed runs");
 
-    for entry in std::fs::read_dir("logs")? {
-        let entry = entry?;
-        let mut versions = Vec::new();
-        for ver in fs::read_dir(entry.path())? {
-            let path = ver?.path();
-            let ver = path.file_name().unwrap().to_str().unwrap();
-            if !ver.ends_with(".html") {
-                versions.push(ver.to_string());
+    let entries = std::fs::read_dir("logs")?
+        .filter_map(Result::ok)
+        .collect::<Vec<_>>();
+
+    let mut crates = entries
+        .par_iter()
+        .map(|entry| {
+            let mut versions = Vec::new();
+            for ver in fs::read_dir(entry.path())? {
+                let path = ver?.path();
+                let ver = path.file_name().unwrap().to_str().unwrap();
+                if !ver.ends_with(".html") {
+                    versions.push(Version::parse(ver));
+                }
             }
-        }
-        versions.sort_by_key(|ver| semver::Version::parse(ver).ok());
 
-        let version = if let Some(latest) = versions.pop() {
-            latest
-        } else {
-            continue;
-        };
+            let version = if let Some(ver) = versions.into_iter().max() {
+                ver
+            } else {
+                color_eyre::eyre::bail!("Missing version");
+            };
 
-        let mut krate = Crate {
-            name: entry
-                .path()
-                .file_name()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string(),
-            version,
-            status: Status::Unknown,
-            recent_downloads: None,
-            time: None,
-        };
+            let mut krate = Crate {
+                name: entry
+                    .path()
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+                version,
+                status: Status::Unknown,
+                recent_downloads: None,
+                time: None,
+            };
 
-        let path = format!("logs/{}/{}", krate.name, krate.version);
-        if let Ok(output) = fs::read_to_string(path) {
-            let time_prefix = "\tElapsed (wall clock) time (h:mm:ss or m:ss): ";
-            if let Some(line) = output
-                .lines()
-                .rev()
-                .find(|line| line.starts_with(time_prefix))
-            {
-                let line = line.strip_prefix(time_prefix).unwrap().trim();
-                let mut duration = 0;
-                let mut it = line.rsplit(':');
-                if let Some(seconds) = it.next() {
-                    duration += seconds.parse::<f64>()? as u64;
+            let path = format!("logs/{}/{}", krate.name, krate.version);
+            if let Ok(output) = fs::read_to_string(path) {
+                let time_prefix = "\tElapsed (wall clock) time (h:mm:ss or m:ss): ";
+                if let Some(line) = output
+                    .lines()
+                    .rev()
+                    .find(|line| line.starts_with(time_prefix))
+                {
+                    let line = line.strip_prefix(time_prefix).unwrap().trim();
+                    let mut duration = 0;
+                    let mut it = line.rsplit(':');
+                    if let Some(seconds) = it.next() {
+                        duration += seconds.parse::<f64>()? as u64;
+                    }
+                    if let Some(minutes) = it.next() {
+                        duration += minutes.parse::<u64>()? * 60;
+                    }
+                    if let Some(hours) = it.next() {
+                        duration += hours.parse::<u64>()? * 60 * 60;
+                    }
+                    krate.time = Some(duration);
                 }
-                if let Some(minutes) = it.next() {
-                    duration += minutes.parse::<u64>()? * 60;
-                }
-                if let Some(hours) = it.next() {
-                    duration += hours.parse::<u64>()? * 60 * 60;
-                }
-                krate.time = Some(duration);
             }
-        }
 
-        diagnose(&mut krate)?;
+            diagnose(&mut krate)?;
 
-        crates.insert(krate.name.clone(), krate);
-    }
+            Ok(((krate.name.clone(), krate.version.clone()), krate))
+        })
+        .collect::<Result<HashMap<(String, Version), Crate>, _>>()?;
 
     for c in db_dump::download()?.into_iter() {
-        if let Some(krate) = crates.get_mut(&c.name) {
+        if let Some(krate) = crates.get_mut(&(c.name, c.version)) {
             krate.recent_downloads = c.recent_downloads;
         }
     }
 
-    let mut crates = crates.values().cloned().collect::<Vec<_>>();
-
-    crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
+    let crates = crates.values().cloned().collect::<Vec<_>>();
 
     Ok(crates)
 }

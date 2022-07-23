@@ -17,6 +17,7 @@ fn main() -> Result<()> {
 
     let crates = load_completed_crates()?;
 
+    log::info!("Rendering");
     render(&crates)
 }
 
