@@ -25,6 +25,10 @@ struct Args {
     #[clap(long, default_value_t = 8)]
     memory_limit_gb: usize,
 
+    /// Number of crates to test at once
+    #[clap(long)]
+    jobs: Option<usize>,
+
     #[clap(long, default_value_t = RerunWhen::LockfileChanged)]
     rerun_when: RerunWhen,
 }
@@ -82,10 +86,24 @@ fn main() -> Result<()> {
     } else {
         let crate_list = fs::read_to_string(&args.crate_list.clone().unwrap())?;
         let crate_list: HashSet<_> = crate_list.trim().split_whitespace().collect();
-        all_crates
+        let mut crates = all_crates
             .into_iter()
             .filter(|c| crate_list.contains(c.name.as_str()))
-            .collect()
+            .collect::<Vec<_>>();
+        for c in crate_list.iter().filter(|c| c.contains("==")) {
+            let mut it = c.split("==");
+            let name = it.next().unwrap();
+            let version = it.next().unwrap();
+            crates.push(Crate {
+                name: name.to_string(),
+                version: Version::parse(&version),
+                recent_downloads: None,
+                status: Status::Unknown,
+                time: None,
+            });
+        }
+
+        crates
     };
 
     fs::create_dir_all("logs")?;
@@ -189,7 +207,7 @@ fn main() -> Result<()> {
     let test_end_delimiter = uuid::Uuid::new_v4().to_string();
 
     let mut threads = Vec::new();
-    for _ in 0..num_cpus::get() / 2 {
+    for _ in 0..args.jobs.unwrap_or_else(|| num_cpus::get() / 2) {
         let bar = bar.clone();
         let crates = crates.clone();
         let test_end_delimiter = test_end_delimiter.clone();
