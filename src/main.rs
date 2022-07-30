@@ -113,7 +113,7 @@ fn main() -> Result<()> {
     let bar = ProgressBar::new(crates.len() as u64);
     bar.set_style(
         ProgressStyle::default_bar()
-            .template("[{elapsed_precise}/{duration_precise}] {wide_bar} {pos}/{len}"),
+            .template("[{elapsed_precise}/{duration_precise}] {wide_bar} {pos}/{len}")?,
     );
 
     let crates = crates
@@ -194,7 +194,7 @@ fn main() -> Result<()> {
     let bar = ProgressBar::new(crates.len() as u64);
     bar.set_style(
         ProgressStyle::default_bar()
-            .template("[{elapsed_precise}/{duration_precise}] {wide_bar} {pos}/{len}"),
+            .template("[{elapsed_precise}/{duration_precise}] {wide_bar} {pos}/{len}")?,
     );
 
     let miri_flags = "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks \
