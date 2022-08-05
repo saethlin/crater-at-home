@@ -129,6 +129,7 @@ fn main() -> Result<()> {
             {
                 // Skip crates if a log exists and rerun-when=never
                 if let RerunWhen::Never = args.rerun_when {
+                    bar.inc(1);
                     return false;
                 }
 
