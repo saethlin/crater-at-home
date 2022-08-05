@@ -10,7 +10,7 @@ do
     then
         cd /root/build
         cargo +miri update --color=always
-        cargo +miri miri test --no-run --color=always --jobs=4
+        cargo +miri miri test --no-run --color=always --jobs=1
         unbuffer -p /usr/bin/time -v timeout $TEST_TIMEOUT cargo +miri miri test --no-fail-fast -- --test-threads=2
         cat Cargo.lock
     fi
