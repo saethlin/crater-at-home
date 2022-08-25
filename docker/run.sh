@@ -6,7 +6,7 @@ while read crate;
 do
     cd /root # ensure that we don't remove the current directory
     rm -rf /root/build # clean out anything from an old build (probably)
-    if cargo download --extract --output=/root/build $crate
+    if cargo download $crate /root/build
     then
         cd /root/build
         cargo +miri update --color=always

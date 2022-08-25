@@ -10,7 +10,7 @@ struct Args {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Args::parse();
+    let args = Args::parse_from(std::env::args().skip(1));
 
     assert!(args.krate.contains("=="));
 
