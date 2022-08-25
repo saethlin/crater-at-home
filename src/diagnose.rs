@@ -57,13 +57,19 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
         let kind;
         if line.contains("Data race detected") {
             kind = "data race".to_string()
-        } else if line.contains("encountered uninitialized bytes") {
+        } else if line.contains("encountered uninitialized")
+            || line.contains("this operation requires initialized memory")
+        {
             kind = "uninitialized memory".to_string();
         } else if line.contains("out-of-bounds") {
             kind = "invalid pointer offset".to_string();
         } else if line.contains("dereferencing pointer failed: null pointer is not a valid pointer")
         {
             kind = "null pointer dereference".to_string();
+        } else if line.contains("encountered 0, but expected something greater or equal to 1") {
+            kind = "zero-initialized nonzero type".to_string();
+        } else if line.contains("encountered a null reference") {
+            kind = "null reference".to_string();
         } else if line.contains("accessing memory with alignment") {
             kind = "misaligned pointer dereference".to_string();
         } else if line.contains("dangling reference") {
@@ -72,11 +78,16 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
             kind = "unaligned reference".to_string();
         } else if line.contains("incorrect layout on deallocation") {
             kind = "incorrect layout on deallocation".to_string();
+        } else if line.contains("deallocating while") && line.contains("is protected") {
+            kind = "deallocation conflict with dereferenceable".to_string();
         } else if line.contains("attempting a write access")
             && line.contains("only grants SharedReadOnly")
         {
             kind = "SB-write-via-&".to_string();
-        } else if line.contains("borrow stack") || line.contains("reborrow") {
+        } else if line.contains("borrow stack")
+            || line.contains("reborrow")
+            || line.contains("retag")
+        {
             if line.contains("<untagged>") {
                 kind = "int-to-ptr cast".to_string();
             } else {
