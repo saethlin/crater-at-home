@@ -199,7 +199,7 @@ fn main() -> Result<()> {
     );
 
     let miri_flags = "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks \
-                     -Zmiri-panic-on-unsupported";
+                     -Zmiri-panic-on-unsupported -Zmiri-retag-fields";
 
     // Reverse the sort order, most-downloaded last
     let crates = crates.into_iter().rev().collect::<Vec<_>>();
