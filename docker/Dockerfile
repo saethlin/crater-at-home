@@ -11,8 +11,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
     ./miri check && \
     ./miri install && \
     rustup default miri && \
-    rustup toolchain remove stable && \
-    cargo +miri miri setup
+    rustup toolchain remove stable
 
 RUN apt-get update && \
     apt-get install -y time clang lld expect && \

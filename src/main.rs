@@ -218,7 +218,12 @@ fn main() -> Result<()> {
                 "run",
                 "--rm",
                 "--interactive",
-                "--cpu-shares=2",
+                "--cpus=1", // Limit the build to one CPU
+                // Create tmpfs mounts for all the locations we expect to be doing work in, so that
+                // we minimize actual disk I/O
+                "--tmpfs=/root/build:exec",
+                "--tmpfs=/root/.cache",
+                "--tmpfs=/tmp:exec",
                 "--env",
                 "RUSTFLAGS=-Zrandomize-layout --cap-lints allow -Copt-level=0 -Cdebuginfo=0",
                 "--env",
@@ -233,7 +238,10 @@ fn main() -> Result<()> {
                 "TEST_TIMEOUT=900",
                 "--env",
                 &format!("TEST_END_DELIMITER={}", test_end_delimiter),
+                // Enforce the memory limit
                 &format!("--memory={}g", args.memory_limit_gb),
+                // Setting --memory-swap to the same value turns off swap
+                &format!("--memory-swap={}g", args.memory_limit_gb),
                 "miri:latest",
             ])
             .stdin(Stdio::piped())
@@ -241,6 +249,8 @@ fn main() -> Result<()> {
             .stderr(Stdio::piped())
             .spawn()
             .unwrap();
+
+        let test_end_delimiter = format!("-{}-", test_end_delimiter);
 
         let mut stdin = child.stdin.unwrap();
 
