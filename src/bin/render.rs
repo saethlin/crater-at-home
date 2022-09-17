@@ -107,10 +107,14 @@ a {
     color: #eee;
 }
 .row {
-    display: flex;
+    text-indent: 1em;
     border-bottom: 1px solid #333;
-    padding: 1em 2em 1em 1em;
-    width: 100%;
+    line-height: 1.5;
+    vertical-align: top;
+    margin-right: 0.5em;
+    margin-left: 0.5em;
+    padding-top: 0.5em;
+    padding-bottom: 0.5em;
 }
 .log {
     order: 1;
@@ -129,16 +133,6 @@ a {
     width: 25%;
     overflow-y: scroll;
     overflow-x: hidden;
-}
-.crate {
-    order: 1;
-    flex: 1;
-    padding-right: 2em;
-}
-.status {
-    order: 2;
-    flex: 1;
-    padding-right: 2em;
 }
 .page {
     display: flex;
@@ -161,13 +155,25 @@ function decode_params() {
     for (var i = 0; i < paramsarr.length; ++i) {
         var tmp = paramsarr[i].split("=");
         if (!tmp[0] || !tmp[1]) continue;
-        params[tmp[0]]  = decodeURIComponent(tmp[1]);
+        params[tmp[0]] = decodeURIComponent(tmp[1]);
     }
     return params;
 }
+function crate_click() {
+    if (event.target.classList.contains("row")) {
+        let fields = event.target.innerHTML.split("<")[0].split(" ");
+        let crate = fields[0];
+        let version = fields[1];
+
+        change_log(crate, version);
+   }
+}
+let build_log;
 function change_log(crate, version) {
-    var html = "<object data=\"logs/" + crate + "/" + version + ".html\" width=100% height=100%></object>";
-    var build_log = document.getElementById("log");
+    let html = "<object data=\"logs/" + crate + "/" + version + ".html\" width=100% height=100%></object>";
+    if (build_log == undefined)  {
+        build_log = document.getElementById("log");
+    }
     build_log.innerHTML = html;
 
     params = decode_params();
@@ -212,20 +218,14 @@ Click on a crate to the right to display its build log
 </pre></body></html>
 </object>
 </div>
-<div class="crates">
+<div class="crates" onclick=crate_click()>
 "#;
 
 fn write_output(crates: &[Crate]) -> Result<()> {
     let mut output = String::new();
     writeln!(output, "{}", OUTPUT_HEADER)?;
     for c in crates {
-        write!(
-            output,
-            "<div class=\"row\" onclick=\"change_log(&quot;{}&quot;, &quot;{}&quot;)\"><div class=\"crate\">{} {}</div>",
-            c.name, c.version, c.name, c.version
-        )
-        ?;
-        write!(output, "<div class=\"status\">")?;
+        write!(output, "<div class=\"row\">{} {}<br>", c.name, c.version,)?;
         match &c.status {
             Status::Unknown => write!(output, "Unknown"),
             Status::Passing => write!(output, "Passing"),
@@ -244,7 +244,7 @@ fn write_output(crates: &[Crate]) -> Result<()> {
                 Ok(())
             }
         }?;
-        writeln!(output, "</div></div>")?;
+        writeln!(output, "</div>")?;
     }
     write!(output, "</div></body></html>")?;
 
@@ -255,13 +255,7 @@ fn write_output(crates: &[Crate]) -> Result<()> {
     writeln!(output, "{}", OUTPUT_HEADER)?;
     for c in crates {
         if let Status::UB { cause: causes, .. } = &c.status {
-            write!(
-            output,
-            "<div class=\"row\" onclick=\"change_log(&quot;{}&quot;, &quot;{}&quot;)\"><div class=\"crate\">{} {}</div>",
-            c.name, c.version, c.name, c.version
-        )
-            ?;
-            write!(output, "<div class=\"status\">")?;
+            write!(output, "<div class=\"row\">{} {}<br>", c.name, c.version,)?;
             write!(output, "UB: ")?;
             for cause in causes {
                 write!(output, "{}", cause.kind)?;
@@ -272,7 +266,7 @@ fn write_output(crates: &[Crate]) -> Result<()> {
             }
             output.pop();
             output.pop();
-            writeln!(output, "</div></div>")?;
+            writeln!(output, "</div>")?;
         }
     }
 
