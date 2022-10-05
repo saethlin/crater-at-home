@@ -2,7 +2,7 @@ FROM ghcr.io/rust-lang/crates-build-env/linux
 
 ENV PATH=/root/.cargo/bin:$PATH
 
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --profile=minimal -y && \
     cargo install rustup-toolchain-install-master xargo && \
     cargo install --git https://github.com/saethlin/miri-tools cargo-download && \
     git clone --depth=1 https://github.com/rust-lang/miri && \
