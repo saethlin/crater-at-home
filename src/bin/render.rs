@@ -72,7 +72,7 @@ fn write_crate_output(krate: &Crate, output: &str) -> Result<()> {
 
     let encoded = encoded.replacen(
         "Undefined Behavior:",
-        "</pre><pre id=\"ub\">Undefined Behavior:",
+        "<span id=\"ub\"></span>Undefined Behavior:",
         1,
     );
 
