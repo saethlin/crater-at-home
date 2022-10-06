@@ -25,6 +25,14 @@ fn main() -> Result<()> {
 
     let crates = load_completed_crates()?;
 
+    // Get only the latest-versioned release of each crate
+    let mut crates = crates
+        .values()
+        .map(|c| c.iter().max_by(|a, b| a.version.cmp(&b.version)).unwrap())
+        .cloned()
+        .collect::<Vec<_>>();
+    crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
+
     let tag_re = Regex::new("<\\d+>").unwrap();
     let alloc_re = Regex::new("alloc\\d+").unwrap();
     let offset_re = Regex::new("alloc\\d+\\[0x\\d+\\]").unwrap();

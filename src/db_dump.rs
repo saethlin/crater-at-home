@@ -1,11 +1,9 @@
 use crate::{Crate, Status, Version};
-
 use color_eyre::Result;
 use flate2::read::GzDecoder;
 use fxhash::FxHashMap;
 use serde::Deserialize;
-use std::collections::hash_map::Entry;
-use std::io::Read;
+use std::{collections::hash_map::Entry, io::Read};
 use tar::Archive;
 
 struct PublishedCrate {

@@ -2,15 +2,16 @@ use backoff::{retry, ExponentialBackoff};
 use clap::Parser;
 use color_eyre::eyre::Result;
 use indicatif::{ProgressBar, ProgressStyle};
-use miri_the_world::*;
+use miri_the_world::{db_dump, Crate, Error, Status, Version};
 use rayon::prelude::*;
-use std::collections::HashSet;
-use std::fmt;
-use std::fs;
-use std::io::{BufRead, BufReader, Write};
-use std::process::Stdio;
-use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashSet,
+    fmt, fs,
+    io::{BufRead, BufReader, Write},
+    process::Stdio,
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
 
 #[derive(Parser)]
 struct Args {
@@ -33,6 +34,7 @@ struct Args {
     rerun_when: RerunWhen,
 }
 
+#[derive(Clone, Copy)]
 enum RerunWhen {
     Always,
     Never,

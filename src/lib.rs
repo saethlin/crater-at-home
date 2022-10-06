@@ -1,13 +1,9 @@
-use rayon::prelude::*;
-use std::collections::HashMap;
-use std::fmt;
-use std::fs;
-use std::io::Read;
-use std::path::Path;
-
 use color_eyre::Report;
 use flate2::read::GzDecoder;
 use once_cell::sync::Lazy;
+use rayon::prelude::*;
+use std::{collections::HashMap, fmt, fs, io::Read, path::Path};
+
 pub mod db_dump;
 pub mod diagnose;
 
@@ -151,8 +147,10 @@ fn unpack_without_first_dir<R: Read>(archive: &mut Archive<R>, path: &Path) -> R
     Ok(())
 }
 
-pub fn load_completed_crates() -> Result<Vec<Crate>, Report> {
+pub fn load_completed_crates() -> Result<HashMap<String, Vec<Crate>>, Report> {
     log::info!("Scanning logs directory for completed runs");
+
+    let db_dump = std::thread::spawn(db_dump::download);
 
     let entries = std::fs::read_dir("logs")?
         .filter_map(Result::ok)
@@ -161,72 +159,76 @@ pub fn load_completed_crates() -> Result<Vec<Crate>, Report> {
     let mut crates = entries
         .par_iter()
         .map(|entry| {
-            let mut versions = Vec::new();
+            let name = entry
+                .path()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
+
+            let mut crates = Vec::new();
             for ver in fs::read_dir(entry.path())? {
                 let path = ver?.path();
                 let ver = path.file_name().unwrap().to_str().unwrap();
-                if !ver.ends_with(".html") {
-                    versions.push(Version::parse(ver));
+                if ver.ends_with(".html") {
+                    continue;
                 }
-            }
+                let version = Version::parse(ver);
 
-            let version = if let Some(ver) = versions.into_iter().max() {
-                ver
-            } else {
-                color_eyre::eyre::bail!("Missing version");
-            };
+                let mut krate = Crate {
+                    name: name.clone(),
+                    version,
+                    status: Status::Unknown,
+                    recent_downloads: None,
+                    time: None,
+                };
 
-            let mut krate = Crate {
-                name: entry
-                    .path()
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string(),
-                version,
-                status: Status::Unknown,
-                recent_downloads: None,
-                time: None,
-            };
-
-            let path = format!("logs/{}/{}", krate.name, krate.version);
-            if let Ok(output) = fs::read_to_string(path) {
-                let time_prefix = "\tElapsed (wall clock) time (h:mm:ss or m:ss): ";
-                if let Some(line) = output
-                    .lines()
-                    .rev()
-                    .find(|line| line.starts_with(time_prefix))
-                {
-                    let line = line.strip_prefix(time_prefix).unwrap().trim();
-                    let mut duration = 0;
-                    let mut it = line.rsplit(':');
-                    if let Some(seconds) = it.next() {
-                        duration += seconds.parse::<f64>()? as u64;
+                let path = format!("logs/{}/{}", krate.name, krate.version);
+                if let Ok(output) = fs::read_to_string(path) {
+                    let time_prefix = "\tElapsed (wall clock) time (h:mm:ss or m:ss): ";
+                    if let Some(line) = output
+                        .lines()
+                        .rev()
+                        .find(|line| line.starts_with(time_prefix))
+                    {
+                        let line = line.strip_prefix(time_prefix).unwrap().trim();
+                        let mut duration = 0;
+                        let mut it = line.rsplit(':');
+                        if let Some(seconds) = it.next() {
+                            duration += seconds.parse::<f64>()? as u64;
+                        }
+                        if let Some(minutes) = it.next() {
+                            duration += minutes.parse::<u64>()? * 60;
+                        }
+                        if let Some(hours) = it.next() {
+                            duration += hours.parse::<u64>()? * 60 * 60;
+                        }
+                        krate.time = Some(duration);
                     }
-                    if let Some(minutes) = it.next() {
-                        duration += minutes.parse::<u64>()? * 60;
-                    }
-                    if let Some(hours) = it.next() {
-                        duration += hours.parse::<u64>()? * 60 * 60;
-                    }
-                    krate.time = Some(duration);
                 }
+
+                diagnose(&mut krate)?;
+                crates.push(krate);
             }
+            crates.sort_by(|a, b| a.version.cmp(&b.version));
 
-            diagnose(&mut krate)?;
-
-            Ok(((krate.name.clone(), krate.version.clone()), krate))
+            Ok((name, crates))
         })
-        .collect::<Result<HashMap<(String, Version), Crate>, _>>()?;
+        .collect::<Result<HashMap<String, Vec<Crate>>, Report>>()?;
 
-    for c in db_dump::download()?.into_iter() {
-        if let Some(krate) = crates.get_mut(&(c.name, c.version)) {
-            krate.recent_downloads = c.recent_downloads;
+    log::info!("Logs collected");
+
+    let db_dump = db_dump.join().unwrap()?;
+    log::info!("Database processed");
+
+    for c in db_dump.into_iter() {
+        if let Some(krates) = crates.get_mut(&c.name) {
+            for krate in krates {
+                krate.recent_downloads = c.recent_downloads;
+            }
         }
     }
 
-    let mut crates = crates.values().cloned().collect::<Vec<_>>();
-    crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
     Ok(crates)
 }
