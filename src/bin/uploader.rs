@@ -1,11 +1,21 @@
 use aws_sdk_s3::{types::ByteStream, Client};
+use clap::Parser;
 use color_eyre::Report;
 use futures_util::stream::StreamExt;
 use std::{collections::HashMap, fs, sync::Arc, time::SystemTime};
+use tokio::task::JoinSet;
+
+#[derive(Parser)]
+struct Args {
+    #[clap(long)]
+    dry_run: bool,
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Report> {
-    let mut tasks = Vec::new();
+    let args = Args::parse();
+
+    let mut tasks = JoinSet::new();
     let config = aws_config::load_from_env().await;
     let client = Arc::new(Client::new(&config));
 
@@ -15,19 +25,21 @@ async fn main() -> Result<(), Report> {
         .into_paginator()
         .send();
 
-    for path in ["index.html", "ub", "all.html"] {
-        let client = client.clone();
-        tasks.push(tokio::spawn(async move {
-            client
-                .put_object()
-                .bucket("miri-runs")
-                .key(path)
-                .body(ByteStream::from_path(path).await?)
-                .content_type("text/html")
-                .send()
-                .await?;
-            Ok::<(), Report>(())
-        }));
+    if !args.dry_run {
+        for path in ["index.html", "ub", "all.html"] {
+            let client = client.clone();
+            tasks.spawn(async move {
+                client
+                    .put_object()
+                    .bucket("miri-runs")
+                    .key(path)
+                    .body(ByteStream::from_path(path).await?)
+                    .content_type("text/html")
+                    .send()
+                    .await?;
+                Ok::<(), Report>(())
+            });
+        }
     }
 
     let mut bucket_files = HashMap::new();
@@ -57,24 +69,33 @@ async fn main() -> Result<(), Report> {
                 }
             }
 
-            println!("Uploading {}", path);
-            let client = client.clone();
-            tasks.push(tokio::spawn(async move {
-                client
-                    .put_object()
-                    .bucket("miri-runs")
-                    .key(&path)
-                    .body(ByteStream::from_path(&path).await?)
-                    .content_type("text/html")
-                    .send()
-                    .await?;
-                Ok::<(), Report>(())
-            }));
+            if args.dry_run {
+                println!("Would upload {}", path);
+            } else {
+                println!("Uploading {}", path);
+
+                if tasks.len() >= 1024 {
+                    tasks.join_next().await.unwrap()??;
+                }
+
+                let client = client.clone();
+                tasks.spawn(async move {
+                    client
+                        .put_object()
+                        .bucket("miri-runs")
+                        .key(&path)
+                        .body(ByteStream::from_path(&path).await?)
+                        .content_type("text/html")
+                        .send()
+                        .await?;
+                    Ok::<(), Report>(())
+                });
+            }
         }
     }
 
-    for t in tasks {
-        t.await??;
+    while let Some(task) = tasks.join_next().await {
+        task??;
     }
 
     Ok(())

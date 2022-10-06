@@ -1,7 +1,7 @@
 use color_eyre::eyre::Result;
-use miri_the_world::*;
+use miri_the_world::{Crate, Status};
 use rayon::prelude::*;
-use std::{fmt::Write, fs, path::PathBuf};
+use std::{collections::HashMap, fmt::Write, fs, path::PathBuf};
 
 use miri_the_world::load_completed_crates;
 
@@ -21,8 +21,9 @@ fn main() -> Result<()> {
     render(&crates)
 }
 
-fn render(crates: &[Crate]) -> Result<()> {
-    crates.par_iter().try_for_each(|krate| -> Result<()> {
+fn render(crates: &HashMap<String, Vec<Crate>>) -> Result<()> {
+    let flat_crates = crates.values().flat_map(|v| &v[..]).collect::<Vec<_>>();
+    flat_crates.par_iter().try_for_each(|krate| -> Result<()> {
         let path = format!("logs/{}/{}", krate.name, krate.version);
         if let Ok(output) = fs::read_to_string(&path) {
             write_crate_output(krate, &output)?;
@@ -30,7 +31,14 @@ fn render(crates: &[Crate]) -> Result<()> {
         Ok(())
     })?;
 
-    write_output(crates)
+    let mut crates = crates
+        .values()
+        .map(|c| c.iter().max_by(|a, b| a.version.cmp(&b.version)).unwrap())
+        .cloned()
+        .collect::<Vec<_>>();
+    crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
+
+    write_output(&crates)
 }
 
 #[rustfmt::skip]
