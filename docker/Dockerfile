@@ -17,10 +17,8 @@ RUN apt-get update && \
     apt-get install -y time clang lld expect && \
     rm -rf /var/lib/apt/lists/*
 
-COPY config.toml /root/.cargo/config.toml
-COPY nextest.toml /root/.cargo/nextest.toml
+COPY config.toml nextest.toml /root/.cargo/
 
-COPY run.sh /root/run.sh
-COPY get-args.py /root/get-args.py
+COPY run.sh get-args.py /root/
 
 ENTRYPOINT ["bash", "/root/run.sh"]

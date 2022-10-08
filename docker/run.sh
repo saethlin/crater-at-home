@@ -8,10 +8,11 @@ do
     find /root/build -mindepth 1 -delete # clean out anything from an old build (probably)
     if cargo download $crate /root/build
     then
-        ARGS=$(python3 get-args.py)
+        ARGS=$(python3 /root/get-args.py $crate)
         cargo +miri update --color=always
         cargo +miri miri test --no-run --color=always --jobs=1 $ARGS
-        unbuffer -p /usr/bin/time -v cargo +miri miri nextest run --no-fail-fast --config-file=/root/.cargo/nextest.toml $ARGS
+        unbuffer -p /usr/bin/time -v cargo +miri miri nextest run --no-fail-fast --config-file=/root/.cargo/nextest.toml --jobs=1 $ARGS
+        unbuffer -p /usr/bin/time -v timeout $TEST_TIMEOUT cargo +miri miri test --doc --no-fail-fast --jobs=1 $ARGS
         cat Cargo.lock
     fi
     echo "-${TEST_END_DELIMITER}-"
