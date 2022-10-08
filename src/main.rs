@@ -1,7 +1,7 @@
 use backoff::{retry, ExponentialBackoff};
 use clap::Parser;
 use color_eyre::eyre::Result;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{HumanDuration, ProgressBar, ProgressStyle};
 use miri_the_world::{db_dump, Crate, Error, Status, Version};
 use rayon::prelude::*;
 use std::{
@@ -11,6 +11,7 @@ use std::{
     process::Stdio,
     str::FromStr,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 #[derive(Parser)]
@@ -112,10 +113,25 @@ fn main() -> Result<()> {
 
     log::info!("Building list of crates to run");
 
-    let bar = ProgressBar::new(crates.len() as u64);
-    bar.set_style(
+    let bar = ProgressBar::new(crates.len() as u64).with_style(
         ProgressStyle::default_bar()
-            .template("[{elapsed_precise}/{duration_precise}] {wide_bar} {pos}/{len}")?,
+            .with_key(
+                "my_eta",
+                |s: &indicatif::ProgressState, f: &mut dyn fmt::Write| {
+                    match (s.pos(), s.len()) {
+                        (1..=u64::MAX, Some(len)) => write!(
+                            f,
+                            "{:#}",
+                            HumanDuration(Duration::from_secs(
+                                s.elapsed().as_secs() * (len - s.pos()) / s.pos()
+                            ))
+                        ),
+                        (_, _) => write!(f, "-"),
+                    }
+                    .unwrap()
+                },
+            )
+            .template("[{elapsed_precise}/{my_eta}] {wide_bar} {pos}/{len}")?,
     );
 
     let crates = crates
