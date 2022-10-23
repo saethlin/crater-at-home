@@ -74,7 +74,7 @@ async fn main() -> Result<(), Report> {
             } else {
                 println!("Uploading {}", path);
 
-                if tasks.len() >= 1024 {
+                if tasks.len() >= 256 {
                     tasks.join_next().await.unwrap()??;
                 }
 

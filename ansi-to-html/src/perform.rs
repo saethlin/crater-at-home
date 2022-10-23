@@ -16,6 +16,7 @@ impl Perform for Renderer {
             C0::CR => self.carriage_return(),
             C0::LF | C0::VT | C0::FF => self.linefeed(),
             C0::BEL => {}
+            C0::US => {} // Unit separator, which is for machines, ignored by terminals.
             //C0::SUB => self.substitute(),
             //C0::SI => self.set_active_charset(CharsetIndex::G0),
             //C0::SO => self.set_active_charset(CharsetIndex::G1),
@@ -76,8 +77,12 @@ impl Perform for Renderer {
                             if let Some(color) = Color::parse_8bit(bg_code) {
                                 self.background = color;
                             }
+                        } else if let Some([38, 2, r, g, b]) = params.get::<5>() {
+                            if let Some(color) = Color::parse_rgb(r, g, b) {
+                                self.foreground = color;
+                            }
                         } else {
-                            println!("Uhandled m: {:?}", params);
+                            println!("Unhandled m: {:?}", params);
                         }
                         break;
                     }
@@ -95,15 +100,19 @@ impl Perform for Renderer {
                             if let Some(color) = Color::parse_8bit(code) {
                                 self.background = color;
                             }
-                        } else if let Some([38, 5, fg_code, 48, 5, bg_code]) = params.get::<6>() {
+                        } else if let Some([48, 5, bg_code, 38, 5, fg_code]) = params.get::<6>() {
                             if let Some(color) = Color::parse_8bit(fg_code) {
                                 self.foreground = color;
                             }
                             if let Some(color) = Color::parse_8bit(bg_code) {
                                 self.background = color;
                             }
+                        } else if let Some([48, 2, r, g, b]) = params.get::<5>() {
+                            if let Some(color) = Color::parse_rgb(r, g, b) {
+                                self.background = color;
+                            }
                         } else {
-                            println!("Uhandled m: {:?}", params);
+                            println!("Unhandled m: {:?}", params);
                         }
                         break;
                     }
@@ -143,13 +152,9 @@ impl Perform for Renderer {
                 self.move_left_by(cells);
             }
         } else if action == 'J' {
-            if let Some(&[mode]) = params.iter().next() {
-                self.erase_in_display(mode);
-            }
+            self.erase_in_display(params.get::<1>().map(|a| a[0]));
         } else if action == 'K' {
-            if let Some(&[mode]) = params.iter().next() {
-                self.erase_in_line(mode);
-            }
+            self.erase_in_line(params.get::<1>().map(|a| a[0]));
         } else if action == 'h' || action == 'l' {
             // show/hide the cursor. Nothing for us to do.
         } else {

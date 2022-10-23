@@ -2,10 +2,10 @@ use backoff::{retry, ExponentialBackoff};
 use clap::Parser;
 use color_eyre::eyre::Result;
 use indicatif::{HumanDuration, ProgressBar, ProgressStyle};
-use miri_the_world::{db_dump, Crate, Error, Status, Version};
+use miri_the_world::{db_dump, Crate, Error, Version};
 use rayon::prelude::*;
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     fmt, fs,
     io::{BufRead, BufReader, Write},
     process::Stdio,
@@ -87,25 +87,24 @@ fn main() -> Result<()> {
         crates.truncate(crate_count);
         crates
     } else {
-        let crate_list = fs::read_to_string(&args.crate_list.clone().unwrap())?;
-        let crate_list: HashSet<_> = crate_list.trim().split_whitespace().collect();
-        let mut crates = all_crates
+        let crate_list = fs::read_to_string(args.crate_list.as_ref().unwrap()).unwrap();
+        let all_crates: HashMap<String, Crate> = all_crates
             .into_iter()
-            .filter(|c| crate_list.contains(c.name.as_str()))
-            .collect::<Vec<_>>();
-        for c in crate_list.iter().filter(|c| c.contains("==")) {
-            let mut it = c.split("==");
+            .map(|c| (c.name.clone(), c))
+            .collect();
+        let mut crates = Vec::new();
+        for line in crate_list.trim().split_whitespace() {
+            let mut it = line.split("==");
             let name = it.next().unwrap();
-            let version = it.next().unwrap();
-            crates.push(Crate {
-                name: name.to_string(),
-                version: Version::parse(&version),
-                recent_downloads: None,
-                status: Status::Unknown,
-                time: None,
-            });
+            let version = it.next();
+            if let Some(c) = all_crates.get(name) {
+                crates.push(Crate {
+                    version: version.map(Version::parse).unwrap_or(c.version.clone()),
+                    ..c.clone()
+                });
+            }
         }
-
+        crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
         crates
     };
 

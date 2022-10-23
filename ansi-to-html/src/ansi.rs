@@ -73,6 +73,7 @@ pub mod C0 {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Color {
     EightBit(u8),
+    Rgb([u8; 7]),
 }
 
 const COLORS: [&str; 256] = [
@@ -110,9 +111,10 @@ const COLORS: [&str; 256] = [
 ];
 
 impl Color {
-    pub fn as_str(self) -> &'static str {
+    pub fn as_str(&self) -> &str {
         match self {
-            Color::EightBit(code) => COLORS[code as usize],
+            Color::EightBit(code) => COLORS[*code as usize],
+            Color::Rgb(bytes) => std::str::from_utf8(&bytes[..]).unwrap(),
         }
     }
 
@@ -185,5 +187,17 @@ impl Color {
             0..=255 => Color::EightBit(code as u8),
             _ => return None,
         })
+    }
+
+    pub fn parse_rgb(r: u16, b: u16, g: u16) -> Option<Self> {
+        use std::io::Write;
+        if r > 255 || b > 255 || g > 255 {
+            return None;
+        }
+        let mut bytes = [b'#'; 7];
+        write!(&mut bytes[1..], "{:02x}", r).unwrap();
+        write!(&mut bytes[3..], "{:02x}", g).unwrap();
+        write!(&mut bytes[5..], "{:02x}", b).unwrap();
+        Some(Color::Rgb(bytes))
     }
 }

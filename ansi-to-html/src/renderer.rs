@@ -118,15 +118,15 @@ impl Renderer {
         }
     }
 
-    pub fn erase_in_display(&mut self, _mode: u16) {
-        println!("erase_in_display");
+    pub fn erase_in_display(&mut self, mode: Option<u16>) {
+        println!("erase_in_display {:?}", mode);
     }
 
-    pub fn erase_in_line(&mut self, mode: u16) {
-        if mode == 2 {
+    pub fn erase_in_line(&mut self, mode: Option<u16>) {
+        if mode == Some(2) {
             self.current_row().erase();
         } else {
-            println!("erase_in_line {}", mode);
+            println!("erase_in_line {:?}", mode);
         }
     }
 
