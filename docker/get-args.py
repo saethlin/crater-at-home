@@ -4,7 +4,10 @@ import sys
 
 desired_crate = sys.argv[1].split('==')[0]
 
-config = subprocess.run(["cargo", "metadata"], capture_output=True)
+config = subprocess.run(["cargo", "+miri", "metadata"], capture_output=True)
+# If we can't get metadata, for whatever reason, just exit without printing anything
+if config.returncode != 0:
+    sys.exit(config.returncode)
 config = json.loads(config.stdout)
 
 metadata = {}
