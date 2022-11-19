@@ -265,7 +265,7 @@ fn main() -> Result<()> {
             bar.inc(1);
             bar.println(format!("Finished {} {}", krate.name, krate.version));
 
-            if child.try_wait().is_ok() {
+            if let Ok(Some(_)) = child.try_wait() {
                 bar.println(format!("A worker crashed! Standing up a new one..."));
                 child = spawn_worker(&args, &test_end_delimiter);
             }
