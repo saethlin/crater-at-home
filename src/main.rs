@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 struct Args {
     /// Run the top `n` most-recently-downloaded crates
     #[clap(long, conflicts_with = "crate_list")]
@@ -215,9 +215,6 @@ fn main() -> Result<()> {
             .template("[{elapsed_precise}/{duration_precise}] {wide_bar} {pos}/{len}")?,
     );
 
-    let miri_flags = "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks \
-                     -Zmiri-panic-on-unsupported -Zmiri-retag-fields";
-
     // Reverse the sort order, most-downloaded last
     let crates = crates.into_iter().rev().collect::<Vec<_>>();
     let crates = Arc::new(Mutex::new(crates));
@@ -225,55 +222,18 @@ fn main() -> Result<()> {
     let test_end_delimiter = uuid::Uuid::new_v4().to_string();
 
     let mut threads = Vec::new();
-    for _ in 0..args.jobs.unwrap_or_else(|| num_cpus::get() / 2) {
+    for _ in 0..args.jobs.unwrap_or_else(|| num_cpus::get_physical() - 1) {
         let bar = bar.clone();
         let crates = crates.clone();
+        let args = args.clone();
         let test_end_delimiter = test_end_delimiter.clone();
 
-        let child = std::process::Command::new("docker")
-            .args(&[
-                "run",
-                "--rm",
-                "--interactive",
-                "--cpus=1", // Limit the build to one CPU
-                // Create tmpfs mounts for all the locations we expect to be doing work in, so that
-                // we minimize actual disk I/O
-                "--tmpfs=/root/build:exec",
-                "--tmpfs=/root/.cache",
-                "--tmpfs=/tmp:exec",
-                "--env",
-                "RUSTFLAGS=-Zrandomize-layout --cap-lints allow -Copt-level=0 -Cdebuginfo=0",
-                "--env",
-                "RUSTDOCFLAGS=--color=always",
-                "--env",
-                "CARGO_INCREMENTAL=0",
-                "--env",
-                "RUST_BACKTRACE=0",
-                "--env",
-                miri_flags,
-                "--env",
-                "TEST_TIMEOUT=900",
-                "--env",
-                &format!("TEST_END_DELIMITER={}", test_end_delimiter),
-                // Enforce the memory limit
-                &format!("--memory={}g", args.memory_limit_gb),
-                // Setting --memory-swap to the same value turns off swap
-                &format!("--memory-swap={}g", args.memory_limit_gb),
-                "miri:latest",
-            ])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap();
+        let test_end_delimiter_with_dashes = format!("-{}-", test_end_delimiter);
 
-        let test_end_delimiter = format!("-{}-", test_end_delimiter);
-
-        let mut stdin = child.stdin.unwrap();
-
-        let mut stdout = BufReader::new(child.stdout.unwrap());
+        let mut child = spawn_worker(&args, &test_end_delimiter);
 
         let handle = std::thread::spawn(move || loop {
+            let mut stdout = BufReader::new(child.stdout.as_mut().unwrap());
             let krate = match crates.lock().unwrap().pop() {
                 None => break,
                 Some(krate) => krate,
@@ -281,15 +241,18 @@ fn main() -> Result<()> {
 
             bar.println(format!("Running {} {}", krate.name, krate.version));
 
-            stdin
+            child
+                .stdin
+                .as_mut()
+                .unwrap()
                 .write_all(format!("{}=={}\n", krate.name, krate.version).as_bytes())
                 .unwrap();
 
             let mut output = String::new();
             loop {
                 let bytes_read = stdout.read_line(&mut output).unwrap();
-                if output.trim_end().ends_with(&test_end_delimiter) {
-                    output.truncate(output.len() - test_end_delimiter.len() - 1);
+                if output.trim_end().ends_with(&test_end_delimiter_with_dashes) {
+                    output.truncate(output.len() - test_end_delimiter_with_dashes.len() - 1);
                     break;
                 }
                 if bytes_read == 0 {
@@ -301,6 +264,11 @@ fn main() -> Result<()> {
             fs::write(format!("logs/{}/{}", krate.name, krate.version), &*output).unwrap();
             bar.inc(1);
             bar.println(format!("Finished {} {}", krate.name, krate.version));
+
+            if child.try_wait().is_ok() {
+                bar.println(format!("A worker crashed! Standing up a new one..."));
+                child = spawn_worker(&args, &test_end_delimiter);
+            }
         });
         threads.push(handle);
     }
@@ -312,4 +280,46 @@ fn main() -> Result<()> {
     log::info!("done!");
 
     Ok(())
+}
+
+fn spawn_worker(args: &Args, test_end_delimiter: &str) -> std::process::Child {
+    let miri_flags = "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks \
+                     -Zmiri-panic-on-unsupported -Zmiri-retag-fields=scalar";
+
+    std::process::Command::new("docker")
+        .args(&[
+            "run",
+            "--rm",
+            "--interactive",
+            "--cpus=1", // Limit the build to one CPU
+            // Create tmpfs mounts for all the locations we expect to be doing work in, so that
+            // we minimize actual disk I/O
+            "--tmpfs=/root/build:exec",
+            "--tmpfs=/root/.cache",
+            "--tmpfs=/tmp:exec",
+            "--env",
+            "RUSTFLAGS=-Zrandomize-layout --cap-lints allow -Copt-level=0 -Cdebuginfo=0",
+            "--env",
+            "RUSTDOCFLAGS=--color=always",
+            "--env",
+            "CARGO_INCREMENTAL=0",
+            "--env",
+            "RUST_BACKTRACE=0",
+            "--env",
+            miri_flags,
+            "--env",
+            "TEST_TIMEOUT=900",
+            "--env",
+            &format!("TEST_END_DELIMITER={}", test_end_delimiter),
+            // Enforce the memory limit
+            &format!("--memory={}g", args.memory_limit_gb),
+            // Setting --memory-swap to the same value turns off swap
+            &format!("--memory-swap={}g", args.memory_limit_gb),
+            "miri:latest",
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap()
 }

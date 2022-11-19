@@ -32,8 +32,14 @@ fn render(crates: &HashMap<String, Vec<Crate>>) -> Result<()> {
     })?;
 
     let mut crates = crates
-        .values()
-        .map(|c| c.iter().max_by(|a, b| a.version.cmp(&b.version)).unwrap())
+        .iter()
+        .filter_map(|(name, c)| {
+            let version = c.iter().max_by(|a, b| a.version.cmp(&b.version));
+            if version.is_none() {
+                log::warn!("No versions found for {:?}", name);
+            }
+            version
+        })
         .cloned()
         .collect::<Vec<_>>();
     crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));

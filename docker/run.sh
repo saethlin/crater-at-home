@@ -12,7 +12,7 @@ do
         cargo +miri update --color=always
         cargo +miri miri test --no-run --color=always --jobs=1 $ARGS
         unbuffer -p /usr/bin/time -v cargo +miri miri nextest run --color=always --no-fail-fast --config-file=/root/.cargo/nextest.toml --jobs=1 $ARGS
-        unbuffer -p /usr/bin/time -v timeout $TEST_TIMEOUT cargo +miri miri test --doc --color=always --no-fail-fast --jobs=1 $ARGS
+        unbuffer -p /usr/bin/time -v timeout $TEST_TIMEOUT cargo +miri miri test --doc --color=always --no-fail-fast --jobs=1 --test-threads=1 $ARGS
         cat Cargo.lock
     fi
     echo "-${TEST_END_DELIMITER}-"

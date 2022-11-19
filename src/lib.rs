@@ -1,4 +1,4 @@
-use color_eyre::Report;
+use color_eyre::{eyre::WrapErr, Report};
 use flate2::read::GzDecoder;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
@@ -10,7 +10,7 @@ pub mod diagnose;
 use diagnose::diagnose;
 use tar::Archive;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Crate {
     pub name: String,
     pub recent_downloads: Option<u64>,
@@ -20,7 +20,7 @@ pub struct Crate {
     pub time: Option<u64>,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Debug)]
 pub enum Version {
     Parsed(semver::Version),
     Unparsed(String),
@@ -168,7 +168,10 @@ pub fn load_completed_crates() -> Result<HashMap<String, Vec<Crate>>, Report> {
                 .to_string();
 
             let mut crates = Vec::new();
-            for ver in fs::read_dir(entry.path())? {
+            for ver in fs::read_dir(entry.path())
+                .map_err(Report::new)
+                .with_context(move || entry.path().display().to_string())?
+            {
                 let path = ver?.path();
                 let ver = path.file_name().unwrap().to_str().unwrap();
                 if ver.ends_with(".html") {
