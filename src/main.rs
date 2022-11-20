@@ -6,7 +6,8 @@ use miri_the_world::{db_dump, Crate, Error, Version};
 use rayon::prelude::*;
 use std::{
     collections::HashMap,
-    fmt, fs,
+    fmt,
+    fs::{self, File},
     io::{BufRead, BufReader, Write},
     process::Stdio,
     str::FromStr,
@@ -69,6 +70,8 @@ impl fmt::Display for RerunWhen {
     }
 }
 
+const DOCKER_TAG: &str = "miri";
+
 fn main() -> Result<()> {
     if std::env::var("RUST_BACKTRACE").is_err() {
         std::env::set_var("RUST_BACKTRACE", "1");
@@ -80,6 +83,15 @@ fn main() -> Result<()> {
     color_eyre::install()?;
 
     let args = Args::parse();
+
+    let status = std::process::Command::new("docker")
+        .args(&["build", "-t", DOCKER_TAG, "docker/"])
+        .stdin(File::open("docker/Dockerfile")?)
+        .output()?;
+    color_eyre::eyre::ensure!(
+        status.status.success(),
+        String::from_utf8_lossy(&status.stderr).to_string()
+    );
 
     let all_crates = db_dump::download()?;
     let crates = if let Some(crate_count) = args.crates {
@@ -315,7 +327,7 @@ fn spawn_worker(args: &Args, test_end_delimiter: &str) -> std::process::Child {
             &format!("--memory={}g", args.memory_limit_gb),
             // Setting --memory-swap to the same value turns off swap
             &format!("--memory-swap={}g", args.memory_limit_gb),
-            "miri:latest",
+            &format!("{}:latest", DOCKER_TAG),
         ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
