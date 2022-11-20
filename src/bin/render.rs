@@ -81,7 +81,7 @@ function scroll_to_ub() {{
 }
 
 fn write_crate_output(krate: &Crate, output: &str) -> Result<()> {
-    let encoded = ansi_to_html::convert_escaped(&output);
+    let encoded = ansi_to_html::convert_escaped(output);
 
     let encoded = encoded.replacen(
         "Undefined Behavior:",

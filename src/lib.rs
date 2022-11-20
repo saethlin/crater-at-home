@@ -1,4 +1,4 @@
-use color_eyre::{eyre::WrapErr, Report};
+use color_eyre::{eyre::WrapErr, Report, Result};
 use flate2::read::GzDecoder;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
@@ -32,13 +32,6 @@ impl Version {
             .map(Version::Parsed)
             .unwrap_or_else(|_| Version::Unparsed(s.to_string()))
     }
-
-    pub fn to_string(&self) -> String {
-        match self {
-            Version::Parsed(v) => v.to_string(),
-            Version::Unparsed(v) => v.to_string(),
-        }
-    }
 }
 
 impl fmt::Display for Version {
@@ -66,37 +59,8 @@ pub struct Cause {
 
 static AGENT: Lazy<ureq::Agent> = Lazy::new(ureq::Agent::new);
 
-#[derive(Debug)]
-pub enum Error {
-    Io(std::io::Error),
-    Net(ureq::Error),
-}
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Error::Io(e) => write!(fmt, "{}", e),
-            Error::Net(e) => write!(fmt, "{}", e),
-        }
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Self {
-        Error::Io(e)
-    }
-}
-
-impl From<ureq::Error> for Error {
-    fn from(e: ureq::Error) -> Self {
-        Error::Net(e)
-    }
-}
-
-impl std::error::Error for Error {}
-
 impl Crate {
-    pub fn fetch_into(&self, dest: &Path) -> Result<(), Error> {
+    pub fn fetch_into(&self, dest: &Path) -> Result<()> {
         let cache_path = format!("cache/{}-{}.crate", self.name, self.version);
         let archive = match fs::read(&cache_path) {
             Ok(archive) => archive,
@@ -125,7 +89,7 @@ impl Crate {
     }
 }
 
-fn unpack_without_first_dir<R: Read>(archive: &mut Archive<R>, path: &Path) -> Result<(), Error> {
+fn unpack_without_first_dir<R: Read>(archive: &mut Archive<R>, path: &Path) -> Result<()> {
     let entries = archive.entries()?;
     for entry in entries {
         let mut entry = entry?;
@@ -137,7 +101,7 @@ fn unpack_without_first_dir<R: Read>(archive: &mut Archive<R>, path: &Path) -> R
         let mut components = relpath.components();
         // Throw away the first path component
         components.next();
-        let full_path = path.join(&components.as_path());
+        let full_path = path.join(components.as_path());
         if let Some(parent) = full_path.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -147,7 +111,7 @@ fn unpack_without_first_dir<R: Read>(archive: &mut Archive<R>, path: &Path) -> R
     Ok(())
 }
 
-pub fn load_completed_crates() -> Result<HashMap<String, Vec<Crate>>, Report> {
+pub fn load_completed_crates() -> Result<HashMap<String, Vec<Crate>>> {
     log::info!("Scanning logs directory for completed runs");
 
     let db_dump = std::thread::spawn(db_dump::download);
@@ -218,7 +182,7 @@ pub fn load_completed_crates() -> Result<HashMap<String, Vec<Crate>>, Report> {
 
             Ok((name, crates))
         })
-        .collect::<Result<HashMap<String, Vec<Crate>>, Report>>()?;
+        .collect::<Result<HashMap<String, Vec<Crate>>>>()?;
 
     log::info!("Logs collected");
 

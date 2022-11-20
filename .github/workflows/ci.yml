@@ -22,9 +22,12 @@ jobs:
         run: cargo build
 
       - name: Formatting
-        run: cargo fmt --check
+        run: |
+          cargo fmt --check
+          cargo clippy -- -Dclippy::all
 
       - name: Run
         run: |
-          docker build docker/ -t miri:latest < docker/Dockerfile
-          cargo run -- --crates=1
+          cargo run -- --crates=10
+          cargo run --bin render
+          cargo run --bin uploader -- --help

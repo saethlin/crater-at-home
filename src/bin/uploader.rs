@@ -9,11 +9,14 @@ use tokio::task::JoinSet;
 struct Args {
     #[clap(long)]
     dry_run: bool,
+
+    #[clap(long)]
+    bucket: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Report> {
-    let args = Args::parse();
+    let args = Arc::new(Args::parse());
 
     let mut tasks = JoinSet::new();
     let config = aws_config::load_from_env().await;
@@ -21,17 +24,18 @@ async fn main() -> Result<(), Report> {
 
     let mut res = client
         .list_objects_v2()
-        .bucket("miri-runs")
+        .bucket(&args.bucket)
         .into_paginator()
         .send();
 
     if !args.dry_run {
         for path in ["index.html", "ub", "all.html"] {
+            let args = args.clone();
             let client = client.clone();
             tasks.spawn(async move {
                 client
                     .put_object()
-                    .bucket("miri-runs")
+                    .bucket(&args.bucket)
                     .key(path)
                     .body(ByteStream::from_path(path).await?)
                     .content_type("text/html")
@@ -79,10 +83,11 @@ async fn main() -> Result<(), Report> {
                 }
 
                 let client = client.clone();
+                let args = args.clone();
                 tasks.spawn(async move {
                     client
                         .put_object()
-                        .bucket("miri-runs")
+                        .bucket(&args.bucket)
                         .key(&path)
                         .body(ByteStream::from_path(&path).await?)
                         .content_type("text/html")
