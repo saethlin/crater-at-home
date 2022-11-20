@@ -115,18 +115,18 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
         for line in &lines[l..] {
             if line.contains("inside `") && line.contains(" at ") {
                 let path = line.split(" at ").nth(1).unwrap();
-                if path.contains("/root/build") || !path.starts_with("/") {
+                if path.contains("/root/build") || !path.starts_with('/') {
                     break;
                 } else if path.contains("/root/.cargo/registry/src/") {
                     let crate_name = path
                         .split("/root/.cargo/registry/src/github.com-1ecc6299db9ec823/")
                         .nth(1)
                         .unwrap()
-                        .split("/")
-                        .nth(0)
+                        .split('/')
+                        .next()
                         .unwrap();
 
-                    source_crate = Some(format!("{}", crate_name));
+                    source_crate = Some(crate_name.to_string());
                     break;
                 }
             }

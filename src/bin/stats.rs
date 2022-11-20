@@ -57,7 +57,7 @@ fn main() -> Result<()> {
                 known += 1;
             }
             Status::Error(err) => {
-                *errored.entry(&err).or_default() += 1;
+                *errored.entry(err).or_default() += 1;
                 known += 1;
             }
             Status::UB { cause: causes, .. } => {
