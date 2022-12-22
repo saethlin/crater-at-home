@@ -84,11 +84,8 @@ fn main() -> Result<()> {
     let status = std::process::Command::new("docker")
         .args(["build", "-t", DOCKER_TAG, "docker/"])
         .stdin(File::open("docker/Dockerfile")?)
-        .output()?;
-    color_eyre::eyre::ensure!(
-        status.status.success(),
-        String::from_utf8_lossy(&status.stderr).to_string()
-    );
+        .status()?;
+    color_eyre::eyre::ensure!(status.success(), "docker image build failed!");
 
     let all_crates = db_dump::download()?;
     let crates = if let Some(crate_count) = args.crates {
