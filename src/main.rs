@@ -5,8 +5,7 @@ use miri_the_world::{db_dump, Crate, Version};
 use rayon::prelude::*;
 use std::{
     collections::HashMap,
-    fmt,
-    fs::{self, File},
+    fmt, fs,
     io::{BufRead, BufReader, Write},
     path::Path,
     process::Stdio,
@@ -34,6 +33,46 @@ struct Args {
 
     #[clap(long, default_value_t = RerunWhen::Never)]
     rerun_when: RerunWhen,
+
+    #[clap(long)]
+    tool: Tool,
+}
+
+#[derive(Clone)]
+enum Tool {
+    Miri,
+    Asan,
+}
+
+impl fmt::Display for Tool {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Tool::Miri => "miri",
+            Tool::Asan => "asan",
+        };
+        f.write_str(s)
+    }
+}
+
+impl FromStr for Tool {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "miri" => Ok(Self::Miri),
+            "asan" => Ok(Self::Asan),
+            _ => Err(format!("Invalid tool {}", s)),
+        }
+    }
+}
+
+impl Args {
+    fn docker_tag(&self) -> String {
+        format!("{}-the-world", self.tool)
+    }
+    fn dockerfile(&self) -> String {
+        format!("docker/Dockerfile-{}", self.tool)
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -67,8 +106,6 @@ impl fmt::Display for RerunWhen {
     }
 }
 
-const DOCKER_TAG: &str = "miri";
-
 fn main() -> Result<()> {
     if std::env::var("RUST_BACKTRACE").is_err() {
         std::env::set_var("RUST_BACKTRACE", "1");
@@ -82,18 +119,20 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     let status = std::process::Command::new("docker")
-        .args(["build", "-t", DOCKER_TAG, "docker/"])
-        .stdin(File::open("docker/Dockerfile")?)
+        .args([
+            "build",
+            "-t",
+            &args.docker_tag(),
+            "-f",
+            &args.dockerfile(),
+            "docker/",
+        ])
         .status()?;
     color_eyre::eyre::ensure!(status.success(), "docker image build failed!");
 
     let all_crates = db_dump::download()?;
-    let crates = if let Some(crate_count) = args.crates {
-        let mut crates = all_crates;
-        crates.truncate(crate_count);
-        crates
-    } else {
-        let crate_list = fs::read_to_string(args.crate_list.as_ref().unwrap()).unwrap();
+    let crates = if let Some(crate_list) = &args.crate_list {
+        let crate_list = fs::read_to_string(crate_list).unwrap();
         let all_crates: HashMap<String, Crate> = all_crates
             .into_iter()
             .map(|c| (c.name.clone(), c))
@@ -114,6 +153,12 @@ fn main() -> Result<()> {
         }
         crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
         crates
+    } else if let Some(crate_count) = args.crates {
+        let mut crates = all_crates;
+        crates.truncate(crate_count);
+        crates
+    } else {
+        all_crates
     };
 
     fs::create_dir_all("logs")?;
@@ -230,15 +275,59 @@ fn main() -> Result<()> {
 }
 
 fn spawn_worker(args: &Args, test_end_delimiter: &str) -> std::process::Child {
+    match args.tool {
+        Tool::Miri => spawn_miri_worker(args, test_end_delimiter),
+        Tool::Asan => spawn_asan_worker(args, test_end_delimiter),
+    }
+}
+
+fn spawn_asan_worker(args: &Args, test_end_delimiter: &str) -> std::process::Child {
+    std::process::Command::new("docker")
+        .args([
+            "run",
+            "--rm",
+            "--interactive",
+            "--cpus=1",       // Limit the build to one CPU
+            "--cpu-shares=2", // And reduce priority
+            // Create tmpfs mounts for all the locations we expect to be doing work in, so that
+            // we minimize actual disk I/O
+            "--tmpfs=/root/build:exec",
+            "--tmpfs=/root/.cache",
+            "--tmpfs=/tmp:exec",
+            "--env",
+            "RUSTFLAGS=-Zrandomize-layout --cap-lints allow -Copt-level=0 -Cdebuginfo=0",
+            "--env",
+            "RUSTDOCFLAGS=--color=always",
+            "--env",
+            "CARGO_INCREMENTAL=0",
+            "--env",
+            "RUST_BACKTRACE=0",
+            "--env",
+            &format!("TEST_END_DELIMITER={}", test_end_delimiter),
+            // Enforce the memory limit
+            &format!("--memory={}g", args.memory_limit_gb),
+            // Setting --memory-swap to the same value turns off swap
+            &format!("--memory-swap={}g", args.memory_limit_gb),
+            &format!("{}:latest", args.docker_tag()),
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap()
+}
+
+fn spawn_miri_worker(args: &Args, test_end_delimiter: &str) -> std::process::Child {
     let miri_flags = "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks \
-                     -Zmiri-panic-on-unsupported -Zmiri-retag-fields=scalar";
+                     -Zmiri-panic-on-unsupported";
 
     std::process::Command::new("docker")
         .args([
             "run",
             "--rm",
             "--interactive",
-            "--cpus=1", // Limit the build to one CPU
+            "--cpus=1",       // Limit the build to one CPU
+            "--cpu-shares=2", // And reduce priority
             // Create tmpfs mounts for all the locations we expect to be doing work in, so that
             // we minimize actual disk I/O
             "--tmpfs=/root/build:exec",
@@ -255,14 +344,12 @@ fn spawn_worker(args: &Args, test_end_delimiter: &str) -> std::process::Child {
             "--env",
             miri_flags,
             "--env",
-            "TEST_TIMEOUT=900",
-            "--env",
             &format!("TEST_END_DELIMITER={}", test_end_delimiter),
             // Enforce the memory limit
             &format!("--memory={}g", args.memory_limit_gb),
             // Setting --memory-swap to the same value turns off swap
             &format!("--memory-swap={}g", args.memory_limit_gb),
-            &format!("{}:latest", DOCKER_TAG),
+            &format!("{}:latest", args.docker_tag()),
         ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

@@ -1,0 +1,19 @@
+FROM ghcr.io/rust-lang/crates-build-env/linux
+
+ENV PATH=/root/.cargo/bin:$PATH
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- --default-toolchain=nightly --component=rust-src --profile=minimal -y && \
+    cargo install --git https://github.com/saethlin/miri-tools cargo-download && \
+    cargo install cargo-careful
+
+RUN apt-get update && \
+    apt-get install -y time clang lld expect && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY config.toml /root/.cargo/config.toml
+
+COPY get-args.py /root/
+COPY run-asan.sh /root/run.sh
+
+ENTRYPOINT ["bash", "/root/run.sh"]

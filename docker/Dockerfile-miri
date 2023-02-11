@@ -21,6 +21,7 @@ RUN apt-get update && \
 
 COPY config.toml nextest.toml /root/.cargo/
 
-COPY run.sh get-args.py /root/
+COPY get-args.py /root/
+COPY run-miri.sh /root/run.sh
 
 ENTRYPOINT ["bash", "/root/run.sh"]
