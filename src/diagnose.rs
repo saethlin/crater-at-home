@@ -10,7 +10,7 @@ static ANSI_REGEX: Lazy<Regex> =
 
 pub fn diagnose(krate: &mut Crate) -> Result<()> {
     let path = format!("logs/{}/{}", krate.name, krate.version);
-    if let Ok(output) = fs::read_to_string(&path) {
+    if let Ok(output) = fs::read_to_string(path) {
         let output = ANSI_REGEX.replace_all(&output, "").to_string();
         // Strip ANSI escape codes from the output;
         krate.status = if output.contains("Undefined Behavior: ") {

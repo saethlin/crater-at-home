@@ -25,7 +25,7 @@ fn render(crates: &HashMap<String, Vec<Crate>>) -> Result<()> {
     let flat_crates = crates.values().flat_map(|v| &v[..]).collect::<Vec<_>>();
     flat_crates.par_iter().try_for_each(|krate| -> Result<()> {
         let path = format!("logs/{}/{}", krate.name, krate.version);
-        if let Ok(output) = fs::read_to_string(&path) {
+        if let Ok(output) = fs::read_to_string(path) {
             write_crate_output(krate, &output)?;
         }
         Ok(())
