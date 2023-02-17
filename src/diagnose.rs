@@ -16,7 +16,30 @@ pub fn diagnose(krate: &mut Crate) -> Result<()> {
         krate.status = if output.contains("Undefined Behavior: ") {
             Status::UB {
                 cause: diagnose_output(&output),
-                status: String::new(),
+            }
+        } else if output.contains("ERROR: AddressSanitizer: ") {
+            if output
+                .contains("WARNING: ASan is ignoring requested __asan_handle_no_return: stack type")
+            {
+                Status::Error("ASan false positive?".to_string())
+            } else {
+                Status::UB {
+                    cause: diagnose_asan(&output),
+                }
+            }
+        } else if output.contains("SIGILL: illegal instruction") {
+            Status::UB {
+                cause: vec![Cause {
+                    kind: "SIGILL debug assertion".to_string(),
+                    source_crate: None,
+                }],
+            }
+        } else if output.contains("attempted to leave type") {
+            Status::UB {
+                cause: vec![Cause {
+                    kind: "uninit type which does not permit uninit".to_string(),
+                    source_crate: None,
+                }],
             }
         } else if output.contains("Command exited with non-zero status 124") {
             Status::Error("Timeout".to_string())
@@ -29,6 +52,32 @@ pub fn diagnose(krate: &mut Crate) -> Result<()> {
         };
     }
     Ok(())
+}
+
+fn diagnose_asan(output: &str) -> Vec<Cause> {
+    let mut causes = Vec::new();
+
+    let lines = output.lines().collect::<Vec<_>>();
+
+    for line in lines
+        .iter()
+        .filter(|line| line.contains("ERROR: AddressSanitizer: "))
+    {
+        if line.contains("requested allocation size") {
+            causes.push(Cause {
+                kind: "requested allocation size exceeds maximum supported size".to_string(),
+                source_crate: None,
+            });
+        } else if let Some(kind) = line.split_whitespace().nth(2) {
+            causes.push(Cause {
+                kind: kind.to_string(),
+                source_crate: None,
+            });
+        }
+    }
+    causes.sort();
+    causes.dedup();
+    causes
 }
 
 fn diagnose_output(output: &str) -> Vec<Cause> {
