@@ -11,7 +11,7 @@ do
         ARGS=$(python3 /root/get-args.py $crate)
         cargo +nightly update --color=always
         cargo +nightly careful test --no-run --color=always $ARGS
-        unbuffer -p /usr/bin/time -v timeout $TEST_TIMEOUT cargo +nightly careful test --no-fail-fast -- --test-threads=2 $ARGS
+        unbuffer -p /usr/bin/time -v cargo +nightly careful test --no-fail-fast -- --test-threads=2 $ARGS
         cat Cargo.lock
     fi
     echo "-${TEST_END_DELIMITER}-"

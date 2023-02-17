@@ -319,7 +319,7 @@ fn spawn_asan_worker(args: &Args, test_end_delimiter: &str) -> std::process::Chi
 
 fn spawn_miri_worker(args: &Args, test_end_delimiter: &str) -> std::process::Child {
     let miri_flags = "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks \
-                     -Zmiri-panic-on-unsupported";
+                     -Zmiri-panic-on-unsupported --color=always";
 
     std::process::Command::new("docker")
         .args([
