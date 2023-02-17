@@ -48,7 +48,7 @@ pub enum Status {
     Unknown,
     Passing,
     Error(String),
-    UB { cause: Vec<Cause>, status: String },
+    UB { cause: Vec<Cause> },
 }
 
 #[derive(Clone, Debug, Ord, Eq, PartialEq, PartialOrd)]

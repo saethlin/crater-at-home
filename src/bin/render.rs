@@ -81,13 +81,20 @@ function scroll_to_ub() {{
 }
 
 fn write_crate_output(krate: &Crate, output: &str) -> Result<()> {
-    let encoded = ansi_to_html::convert_escaped(output);
+    let mut encoded = ansi_to_html::convert_escaped(output);
 
-    let encoded = encoded.replacen(
+    for pat in [
         "Undefined Behavior:",
-        "<span id=\"ub\"></span>Undefined Behavior:",
-        1,
-    );
+        "ERROR: AddressSanitizer:",
+        "SIGILL: illegal instruction",
+        "attempted to leave type",
+    ] {
+        if encoded.contains(pat) {
+            let replacement = format!("<span id=\"ub\"></span>{}", pat);
+            encoded = encoded.replacen(pat, &replacement, 1);
+            break;
+        }
+    }
 
     fs::create_dir_all(format!("logs/{}", krate.name))?;
 
