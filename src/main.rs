@@ -297,11 +297,11 @@ fn spawn_asan_worker(args: &Args, test_end_delimiter: &str) -> std::process::Chi
              "--env",
             "RUSTFLAGS=-Zrandomize-layout --cap-lints allow -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir",
             "--env",
-            "RUSTDOCFLAGS=--color=always",
+            "RUSTDOCFLAGS=-Zrandomize-layout --cap-lints allow -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir",
             "--env",
             "CARGO_INCREMENTAL=0",
             "--env",
-            "RUST_BACKTRACE=0",
+            "RUST_BACKTRACE=1",
             "--env",
             &format!("TEST_END_DELIMITER={}", test_end_delimiter),
             // Enforce the memory limit
@@ -319,7 +319,7 @@ fn spawn_asan_worker(args: &Args, test_end_delimiter: &str) -> std::process::Chi
 
 fn spawn_miri_worker(args: &Args, test_end_delimiter: &str) -> std::process::Child {
     let miri_flags = "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks \
-                     -Zmiri-panic-on-unsupported --color=always";
+                     -Zmiri-panic-on-unsupported";
 
     std::process::Command::new("docker")
         .args([
@@ -336,7 +336,7 @@ fn spawn_miri_worker(args: &Args, test_end_delimiter: &str) -> std::process::Chi
             "--env",
             "RUSTFLAGS=-Zrandomize-layout --cap-lints allow -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir",
             "--env",
-            "RUSTDOCFLAGS=--color=always",
+            "RUSTDOCFLAGS=-Zrandomize-layout --cap-lints allow -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir",
             "--env",
             "CARGO_INCREMENTAL=0",
             "--env",
