@@ -6,21 +6,17 @@ default-run = "miri-the-world"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-env_logger = "0.9.0"
+env_logger = "0.10"
 log = "0.4.17"
-serde_json = "1.0.82"
 serde = { version = "1.0.140", features = ["derive"] }
 ansi-to-html = { path = "ansi-to-html" }
 color-eyre = "0.6.2"
 rayon = "1.5.3"
 ring = "0.16"
-hex = "0.4.3"
 semver = "1.0.12"
-backoff = "0.4.0"
 tar = "0.4.38"
 flate2 = "1.0.24"
 ureq = "2.5.0"
-tempfile = "3.3.0"
 once_cell = "1.13.0"
 csv = "1.1.6"
 fxhash = "0.2.1"
@@ -30,8 +26,8 @@ uuid = { version = "1.1.2", features = ["v4"] }
 num_cpus = "1.13.1"
 tokio = { version = "1.21.2", features = ["full"] }
 futures-util = "0.3.24"
-aws-sdk-s3 = "0.19.0"
-aws-config = "0.49.0"
+aws-sdk-s3 = "0.24"
+aws-config = "0.54"
 
 [profile.release]
 debug = 1
