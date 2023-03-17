@@ -167,14 +167,7 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
                 if path.contains("/root/build") || !path.starts_with('/') {
                     break;
                 } else if path.contains("/root/.cargo/registry/src/") {
-                    let crate_name = path
-                        .split("/root/.cargo/registry/src/github.com-1ecc6299db9ec823/")
-                        .nth(1)
-                        .unwrap()
-                        .split('/')
-                        .next()
-                        .unwrap();
-
+                    let crate_name = path.split('/').nth(6).unwrap();
                     source_crate = Some(crate_name.to_string());
                     break;
                 }
