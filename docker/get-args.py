@@ -24,6 +24,9 @@ args = []
 if metadata.get('no-default-features', False) == True or playground_metadata.get('no-default-features') == True:
     args.append("--no-default-features")
 
+if metadata.get('all-features', False) == True or playground_metadata.get('all-features') == True:
+    args.append("--all-features")
+
 features = set(docsrs_metadata.get('features', [])) | set(playground_metadata.get('features', []))
 features = ",".join(features)
 if features:
