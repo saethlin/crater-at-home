@@ -17,17 +17,29 @@ for crate in config['packages']:
         if metadata is None :
             metadata = {}
 
-docsrs_metadata = metadata.get('docs', {}).get('rs', {})
-playground_metadata = metadata.get('playground', {})
+metadata_sections = [
+    metadata.get('docs', {}).get('rs', {}),
+    metadata.get('docs.rs', {}),
+    metadata.get('playground', {}),
+]
 
 args = []
-if docsrs_metadata.get('no-default-features', False) == True or playground_metadata.get('no-default-features') == True:
-    args.append("--no-default-features")
 
-if docsrs_metadata.get('all-features', False) == True or playground_metadata.get('all-features') == True:
-    args.append("--all-features")
+for section in metadata_sections:
+    if section.get('no-default-features', False) == True:
+        args.append('--no-default-features')
+        break
 
-features = set(docsrs_metadata.get('features', [])) | set(playground_metadata.get('features', []))
+for section in metadata_sections:
+    if section.get('all-features', False) == True:
+        args.append("--all-features")
+        break
+
+features = set()
+for section in metadata_sections:
+    for feat in section.get('features', []):
+        features.append(feat)
+
 features = ",".join(features)
 if features:
     args.append("--features=" + features)
