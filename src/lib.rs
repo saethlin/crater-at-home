@@ -2,13 +2,68 @@ use color_eyre::{eyre::WrapErr, Report, Result};
 use flate2::read::GzDecoder;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
-use std::{collections::HashMap, fmt, fs, io::Read, path::Path};
+use std::{collections::HashMap, fmt, fs, io::Read, path::Path, str::FromStr};
 
 pub mod db_dump;
 pub mod diagnose;
+pub mod render;
+pub mod run;
+pub mod upload;
 
 use diagnose::diagnose;
 use tar::Archive;
+
+#[derive(Clone, Copy)]
+pub enum Tool {
+    Miri,
+    Asan,
+}
+
+impl Tool {
+    pub fn raw_path(self) -> &'static str {
+        match self {
+            Tool::Miri => "miri/raw",
+            Tool::Asan => "asan/raw",
+        }
+    }
+
+    pub fn raw_crate_path(self, krate: &Crate) -> String {
+        format!("{}/{}/{}", self.raw_path(), krate.name, krate.version)
+    }
+
+    pub fn html_path(self) -> &'static str {
+        match self {
+            Tool::Miri => "miri/logs",
+            Tool::Asan => "asan/logs",
+        }
+    }
+
+    pub fn rendered_crate_path(self, krate: &Crate) -> String {
+        format!("{}/{}/{}", self.html_path(), krate.name, krate.version)
+    }
+}
+
+impl fmt::Display for Tool {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Tool::Miri => "miri",
+            Tool::Asan => "asan",
+        };
+        f.write_str(s)
+    }
+}
+
+impl FromStr for Tool {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "miri" => Ok(Self::Miri),
+            "asan" => Ok(Self::Asan),
+            _ => Err(format!("Invalid tool {}", s)),
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Crate {

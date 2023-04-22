@@ -1,20 +1,14 @@
+use crate::load_completed_crates;
+use crate::{Crate, Status};
+use clap::Parser;
 use color_eyre::eyre::Result;
-use miri_the_world::{Crate, Status};
 use rayon::prelude::*;
 use std::{collections::HashMap, fmt::Write, fs, path::PathBuf};
 
-use miri_the_world::load_completed_crates;
+#[derive(Parser)]
+pub struct Args {}
 
-fn main() -> Result<()> {
-    if std::env::var("RUST_BACKTRACE").is_err() {
-        std::env::set_var("RUST_BACKTRACE", "1");
-    }
-    if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "info");
-    }
-    env_logger::init();
-    color_eyre::install()?;
-
+pub fn run(_args: Args) -> Result<()> {
     let crates = load_completed_crates()?;
 
     log::info!("Rendering");
@@ -80,7 +74,7 @@ function scroll_to_ub() {{
     }
 }
 
-fn write_crate_output(krate: &Crate, output: &str) -> Result<()> {
+pub fn render_crate(krate: &Crate, output: &str) -> String {
     let mut encoded = ansi_to_html::convert_escaped(output);
 
     for pat in [
@@ -96,21 +90,7 @@ fn write_crate_output(krate: &Crate, output: &str) -> Result<()> {
         }
     }
 
-    fs::create_dir_all(format!("logs/{}", krate.name))?;
-
-    let path = PathBuf::from(format!("logs/{}/{}.html", krate.name, krate.version));
-    let html = format!(log_format!(), krate.name, krate.version, encoded);
-
-    if path.exists() {
-        let previous = std::fs::read_to_string(&path)?;
-        if previous != html {
-            std::fs::write(path, html)?;
-        }
-    } else {
-        std::fs::write(path, html)?;
-    }
-
-    Ok(())
+    format!(log_format!(), krate.name, krate.version, encoded)
 }
 
 const OUTPUT_HEADER: &str = r#"<!DOCTYPE HTML>
@@ -241,16 +221,17 @@ Click on a crate to the right to display its build log
 <div class="crates" onclick=crate_click()>
 "#;
 
-fn write_output(crates: &[Crate]) -> Result<()> {
+pub fn render_index(crates: &[Crate]) -> Result<String> {
     let mut output = String::from(LANDING_PAGE);
     for c in crates {
         writeln!(output, "\"{}\": [\"{}\"],", c.name, c.version)?;
     }
     output.pop();
     output.push_str("};</script></html>");
-    fs::write(".index.html", output)?;
-    fs::rename(".index.html", "index.html")?;
+    Ok(output)
+}
 
+pub fn render_all(crates: &[Crate]) -> Result<String> {
     let mut output = String::new();
     writeln!(output, "{}", OUTPUT_HEADER)?;
     for c in crates {
@@ -277,9 +258,10 @@ fn write_output(crates: &[Crate]) -> Result<()> {
     }
     write!(output, "</div></body></html>")?;
 
-    fs::write(".all.html", output)?;
-    fs::rename(".all.html", "all.html")?;
+    Ok(output)
+}
 
+pub fn render_ub(crates: &[Crate]) -> Result<()> {
     let mut output = String::new();
     writeln!(output, "{}", OUTPUT_HEADER)?;
     for c in crates {
@@ -299,9 +281,7 @@ fn write_output(crates: &[Crate]) -> Result<()> {
         }
     }
 
-    fs::write(".ub", output)?;
-    fs::rename(".ub", "ub")?;
-    Ok(())
+    Ok(output)
 }
 
 const LANDING_PAGE: &str = r#"<!DOCTYPE HTML>

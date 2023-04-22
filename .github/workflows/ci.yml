@@ -28,7 +28,7 @@ jobs:
 
       - name: Run
         run: |
-          cargo run -- --tool=miri --crates=10
-          cargo run -- --tool=asan --crates=10
-          cargo run --bin render
-          cargo run --bin uploader -- --help
+          cargo run -- run --tool=miri --crates=10
+          cargo run -- run --tool=asan --crates=10
+          cargo run -- render
+          cargo run -- uploader -- --help

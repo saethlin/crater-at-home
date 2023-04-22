@@ -1,12 +1,13 @@
-use aws_sdk_s3::{types::ByteStream, Client};
+use aws_sdk_s3::types::ByteStream;
 use clap::Parser;
-use color_eyre::Report;
+use color_eyre::{Report, Result};
 use futures_util::stream::StreamExt;
 use std::{collections::HashMap, fs, sync::Arc, time::SystemTime};
+use tokio::runtime::Runtime;
 use tokio::task::JoinSet;
 
 #[derive(Parser)]
-struct Args {
+pub struct Args {
     #[clap(long)]
     dry_run: bool,
 
@@ -14,13 +15,58 @@ struct Args {
     bucket: String,
 }
 
+pub struct Client {
+    runtime: Runtime,
+    inner: aws_sdk_s3::Client,
+    bucket: String,
+}
+
+impl Client {
+    pub fn new(args: &crate::run::Args) -> Result<Self> {
+        let rt = Runtime::new()?;
+        let config = rt.block_on(aws_config::load_from_env());
+        let inner = aws_sdk_s3::Client::new(&config);
+        Ok(Self {
+            runtime: rt,
+            inner,
+            bucket: args.bucket.clone(),
+        })
+    }
+
+    pub fn upload_raw(&self, path: &str, data: Vec<u8>) -> Result<()> {
+        let fut = self
+            .inner
+            .put_object()
+            .bucket(&self.bucket)
+            .key(path)
+            .body(data.into())
+            .content_type("application/octet-stream")
+            .send();
+        self.runtime.block_on(fut)?;
+        Ok(())
+    }
+
+    pub fn upload_html(&self, path: &str, data: Vec<u8>) -> Result<()> {
+        let fut = self
+            .inner
+            .put_object()
+            .bucket(&self.bucket)
+            .key(path)
+            .body(data.into())
+            .content_type("text/html")
+            .send();
+        self.runtime.block_on(fut)?;
+        Ok(())
+    }
+}
+
 #[tokio::main]
-async fn main() -> Result<(), Report> {
-    let args = Arc::new(Args::parse());
+pub async fn run(args: Args) -> Result<()> {
+    let args = Arc::new(args);
 
     let mut tasks = JoinSet::new();
     let config = aws_config::load_from_env().await;
-    let client = Arc::new(Client::new(&config));
+    let client = Arc::new(aws_sdk_s3::Client::new(&config));
 
     let mut res = client
         .list_objects_v2()
