@@ -106,10 +106,8 @@ fn build_crate_list(args: &Args) -> Result<Vec<Crate>> {
 }
 
 pub fn run(args: Args) -> Result<()> {
+    log::info!("Figuring out what crates have a build log already");
     let finished_crates = list_bucket(&args)?;
-    for c in &finished_crates {
-        println!("{}", c);
-    }
 
     let client = Arc::new(Client::new(&args)?);
 
@@ -126,9 +124,6 @@ pub fn run(args: Args) -> Result<()> {
     color_eyre::eyre::ensure!(status.success(), "docker image build failed!");
 
     let mut crates = build_crate_list(&args)?;
-    fs::create_dir_all(args.tool.raw_path())?;
-
-    log::info!("Building list of crates to run");
 
     crates.retain(|krate| {
         args.rerun || !finished_crates.contains(&format!("{}/{}", krate.name, krate.version))

@@ -40,7 +40,7 @@ impl Client {
             .bucket(&self.bucket)
             .key(path)
             .body(data.into())
-            .content_type("application/octet-stream")
+            .content_type("text/plain")
             .send();
         self.runtime.block_on(fut)?;
         Ok(())

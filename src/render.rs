@@ -2,19 +2,22 @@ use crate::load_completed_crates;
 use crate::{Crate, Status};
 use clap::Parser;
 use color_eyre::eyre::Result;
-use rayon::prelude::*;
-use std::{collections::HashMap, fmt::Write, fs, path::PathBuf};
+use std::fmt::Write;
 
 #[derive(Parser)]
 pub struct Args {}
 
 pub fn run(_args: Args) -> Result<()> {
+    /*
     let crates = load_completed_crates()?;
 
     log::info!("Rendering");
     render(&crates)
+    */
+    Ok(())
 }
 
+/*
 fn render(crates: &HashMap<String, Vec<Crate>>) -> Result<()> {
     let flat_crates = crates.values().flat_map(|v| &v[..]).collect::<Vec<_>>();
     flat_crates.par_iter().try_for_each(|krate| -> Result<()> {
@@ -40,6 +43,7 @@ fn render(crates: &HashMap<String, Vec<Crate>>) -> Result<()> {
 
     write_output(&crates)
 }
+*/
 
 #[rustfmt::skip]
 macro_rules! log_format {
@@ -261,7 +265,7 @@ pub fn render_all(crates: &[Crate]) -> Result<String> {
     Ok(output)
 }
 
-pub fn render_ub(crates: &[Crate]) -> Result<()> {
+pub fn render_ub(crates: &[Crate]) -> Result<String> {
     let mut output = String::new();
     writeln!(output, "{}", OUTPUT_HEADER)?;
     for c in crates {
