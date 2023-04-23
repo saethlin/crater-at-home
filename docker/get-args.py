@@ -38,7 +38,7 @@ for section in metadata_sections:
 features = set()
 for section in metadata_sections:
     for feat in section.get('features', []):
-        features.append(feat)
+        features.add(feat)
 
 features = ",".join(features)
 if features:
