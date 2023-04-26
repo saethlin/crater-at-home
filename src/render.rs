@@ -1,4 +1,4 @@
-use crate::load_completed_crates;
+//use crate::load_completed_crates;
 use crate::{Crate, Status};
 use clap::Parser;
 use color_eyre::eyre::Result;

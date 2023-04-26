@@ -1,7 +1,6 @@
-use crate::{db_dump, render, upload::Client, Crate, Tool, Version};
+use crate::{render, upload::Client, Crate, Tool, Version};
 use clap::Parser;
 use color_eyre::eyre::Result;
-use futures_util::StreamExt;
 use std::{
     collections::HashMap,
     fs,
@@ -27,7 +26,7 @@ pub struct Args {
     rerun: bool,
 
     #[clap(long)]
-    tool: Tool,
+    pub tool: Tool,
 
     #[clap(long)]
     pub bucket: String,
@@ -43,36 +42,8 @@ impl Args {
     }
 }
 
-fn list_bucket(args: &Args) -> Result<Vec<String>> {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-    rt.block_on(async {
-        let config = aws_config::load_from_env().await;
-        let client = Arc::new(aws_sdk_s3::Client::new(&config));
-        let prefix = format!("{}/", args.tool.raw_path());
-        let mut res = client
-            .list_objects_v2()
-            .bucket(&args.bucket)
-            .prefix(&prefix)
-            .into_paginator()
-            .send();
-        let mut files = Vec::new();
-        while let Some(res) = res.next().await {
-            let page = res?;
-            for obj in page.contents().unwrap_or_default() {
-                if let Some(key) = obj.key().and_then(|key| key.strip_prefix(&prefix)) {
-                    files.push(key.to_string());
-                }
-            }
-        }
-        Ok::<_, color_eyre::Report>(files)
-    })
-}
-
-fn build_crate_list(args: &Args) -> Result<Vec<Crate>> {
-    let all_crates = db_dump::download()?;
+fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
+    let all_crates = client.get_crate_list()?;
     let crates = if let Some(crate_list) = &args.crate_list {
         let crate_list = fs::read_to_string(crate_list).unwrap();
         let all_crates: HashMap<String, Crate> = all_crates
@@ -106,11 +77,6 @@ fn build_crate_list(args: &Args) -> Result<Vec<Crate>> {
 }
 
 pub fn run(args: Args) -> Result<()> {
-    log::info!("Figuring out what crates have a build log already");
-    let finished_crates = list_bucket(&args)?;
-
-    let client = Arc::new(Client::new(&args)?);
-
     let status = std::process::Command::new("docker")
         .args([
             "build",
@@ -123,13 +89,15 @@ pub fn run(args: Args) -> Result<()> {
         .status()?;
     color_eyre::eyre::ensure!(status.success(), "docker image build failed!");
 
-    let mut crates = build_crate_list(&args)?;
-
+    log::info!("Figuring out what crates have a build log already");
+    let client = Arc::new(Client::new(&args)?);
+    let mut crates = build_crate_list(&args, &client)?;
+    let finished_crates = client.get_finished_crates()?;
     crates.retain(|krate| {
         args.rerun || !finished_crates.contains(&format!("{}/{}", krate.name, krate.version))
     });
 
-    // Reverse the sort order, most-downloaded last
+    // We are going to pop crates from this, so we now need to invert the order
     let crates = crates.into_iter().rev().collect::<Vec<_>>();
     let crates = Arc::new(Mutex::new(crates));
 

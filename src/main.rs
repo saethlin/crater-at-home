@@ -11,8 +11,7 @@ struct Cli {
 #[derive(Parser)]
 enum Commands {
     Run(run::Args),
-    Render(render::Args),
-    Upload(upload::Args),
+    Sync(sync::Args),
 }
 
 fn main() -> Result<()> {
@@ -28,7 +27,6 @@ fn main() -> Result<()> {
     let args = Cli::parse();
     match args.command {
         Commands::Run(args) => run::run(args),
-        Commands::Render(args) => render::run(args),
-        Commands::Upload(args) => upload::run(args),
+        Commands::Sync(args) => sync::run(args),
     }
 }

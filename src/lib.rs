@@ -8,6 +8,7 @@ pub mod db_dump;
 pub mod diagnose;
 pub mod render;
 pub mod run;
+pub mod sync;
 pub mod upload;
 
 use diagnose::diagnose;
@@ -68,17 +69,24 @@ impl FromStr for Tool {
 #[derive(Clone, Debug)]
 pub struct Crate {
     pub name: String,
-    pub recent_downloads: Option<u64>,
     pub version: Version,
+    pub recent_downloads: Option<u64>,
     pub status: Status,
-    /// Time that the run took, in seconds
-    pub time: Option<u64>,
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Debug)]
 pub enum Version {
     Parsed(semver::Version),
     Unparsed(String),
+}
+
+impl serde::Serialize for Version {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
 }
 
 impl Version {
@@ -203,32 +211,7 @@ pub fn load_completed_crates() -> Result<HashMap<String, Vec<Crate>>> {
                     version,
                     status: Status::Unknown,
                     recent_downloads: None,
-                    time: None,
                 };
-
-                let path = format!("logs/{}/{}", krate.name, krate.version);
-                if let Ok(output) = fs::read_to_string(path) {
-                    let time_prefix = "\tElapsed (wall clock) time (h:mm:ss or m:ss): ";
-                    if let Some(line) = output
-                        .lines()
-                        .rev()
-                        .find(|line| line.starts_with(time_prefix))
-                    {
-                        let line = line.strip_prefix(time_prefix).unwrap().trim();
-                        let mut duration = 0;
-                        let mut it = line.rsplit(':');
-                        if let Some(seconds) = it.next() {
-                            duration += seconds.parse::<f64>()? as u64;
-                        }
-                        if let Some(minutes) = it.next() {
-                            duration += minutes.parse::<u64>()? * 60;
-                        }
-                        if let Some(hours) = it.next() {
-                            duration += hours.parse::<u64>()? * 60 * 60;
-                        }
-                        krate.time = Some(duration);
-                    }
-                }
 
                 diagnose(&mut krate)?;
                 crates.push(krate);
