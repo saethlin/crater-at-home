@@ -73,13 +73,18 @@ function scroll_to_ub() {{
 }}
 </script>
 <body onload="scroll_to_ub()"><pre>
-{}
-</pre></body></html>"#
+{}</pre></body></html>"#
     }
 }
 
 pub fn render_crate(krate: &Crate, output: &str) -> String {
     let mut encoded = ansi_to_html::convert_escaped(output);
+
+    // Remove blank rows from the bottom of the terminal output
+    let ending = "\n</span>";
+    while encoded.ends_with(ending) {
+        encoded.remove(encoded.len() - ending.len());
+    }
 
     for pat in [
         "Undefined Behavior:",
