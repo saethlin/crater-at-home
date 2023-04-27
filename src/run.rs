@@ -104,7 +104,7 @@ pub fn run(args: Args) -> Result<()> {
     let test_end_delimiter = uuid::Uuid::new_v4().to_string();
 
     let mut threads = Vec::new();
-    for _ in 0..num_cpus::get_physical() {
+    for _ in 0..num_cpus::get() {
         let crates = crates.clone();
         let args = args.clone();
         let client = client.clone();
