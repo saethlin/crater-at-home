@@ -1,65 +1,58 @@
-use crate::{Crate, Status, Version, Tool};
-use color_eyre::{Report, Result};
-use tokio::runtime::Runtime;
+use crate::{Crate, Status, Tool, Version};
+use color_eyre::Result;
 use futures_util::StreamExt;
 
 pub struct Client {
-    runtime: Runtime,
     inner: aws_sdk_s3::Client,
     bucket: String,
     tool: Tool,
 }
 
 impl Client {
-    pub fn new(args: &crate::run::Args) -> Result<Self> {
-        let rt = Runtime::new()?;
-        let config = rt.block_on(aws_config::load_from_env());
+    pub async fn new(args: &crate::run::Args) -> Result<Self> {
+        let config = aws_config::load_from_env().await;
         let inner = aws_sdk_s3::Client::new(&config);
         Ok(Self {
-            runtime: rt,
             inner,
             bucket: args.bucket.clone(),
             tool: args.tool,
         })
     }
 
-    pub fn upload_raw(&self, path: &str, data: Vec<u8>) -> Result<()> {
-        let fut = self
-            .inner
+    pub async fn upload_raw(&self, path: &str, data: Vec<u8>) -> Result<()> {
+        self.inner
             .put_object()
             .bucket(&self.bucket)
             .key(path)
             .body(data.into())
             .content_type("text/plain")
-            .send();
-        self.runtime.block_on(fut)?;
+            .send()
+            .await?;
         Ok(())
     }
 
-    pub fn upload_html(&self, path: &str, data: Vec<u8>) -> Result<()> {
-        let fut = self
-            .inner
+    pub async fn upload_html(&self, path: &str, data: Vec<u8>) -> Result<()> {
+        self.inner
             .put_object()
             .bucket(&self.bucket)
             .key(path)
             .body(data.into())
             .content_type("text/html")
-            .send();
-        self.runtime.block_on(fut)?;
+            .send()
+            .await?;
         Ok(())
     }
 
-    pub fn get_crate_list(&self) -> Result<Vec<Crate>> {
-        let fut = self
+    pub async fn get_crate_list(&self) -> Result<Vec<Crate>> {
+        let response = self
             .inner
             .get_object()
             .bucket(&self.bucket)
             .key("crates.json")
-            .send();
-        let blob = self.runtime.block_on(async {
-            let bytes = fut.await?.body.collect().await?;
-            Ok::<_, Report>(bytes.to_vec())
-        })?;
+            .send()
+            .await?;
+        let bytes = response.body.collect().await?;
+        let blob = bytes.to_vec();
         let crates: Vec<(String, String)> = serde_json::from_slice(&blob)?;
         let crates = crates
             .into_iter()
@@ -73,26 +66,25 @@ impl Client {
         Ok(crates)
     }
 
-    pub fn get_finished_crates(&self) -> Result<Vec<String>> {
+    pub async fn get_finished_crates(&self) -> Result<Vec<String>> {
         let prefix = format!("{}/", self.tool.raw_path());
-        self.runtime.block_on(async {
-            let mut res = self.inner
-                .list_objects_v2()
-                .bucket(&self.bucket)
-                .prefix(&prefix)
-                .into_paginator()
-                .send();
-            let mut files = Vec::new();
-            while let Some(res) = res.next().await {
-                let page = res?;
-                for obj in page.contents().unwrap_or_default() {
-                    if let Some(key) = obj.key().and_then(|key| key.strip_prefix(&prefix)) {
-                        files.push(key.to_string());
-                    }
+        let mut res = self
+            .inner
+            .list_objects_v2()
+            .bucket(&self.bucket)
+            .prefix(&prefix)
+            .into_paginator()
+            .send();
+        let mut files = Vec::new();
+        while let Some(res) = res.next().await {
+            let page = res?;
+            for obj in page.contents().unwrap_or_default() {
+                if let Some(key) = obj.key().and_then(|key| key.strip_prefix(&prefix)) {
+                    files.push(key.to_string());
                 }
             }
-            Ok::<_, color_eyre::Report>(files)
-        })
+        }
+        Ok(files)
     }
 }
 

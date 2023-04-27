@@ -1,13 +1,16 @@
-use crate::{render, upload::Client, Crate, Tool, Version};
+use crate::{client::Client, render, Crate, Tool, Version};
 use clap::Parser;
 use color_eyre::eyre::Result;
 use std::{
     collections::HashMap,
     fs,
-    io::{BufRead, BufReader, Write},
     process::Stdio,
     sync::{Arc, Mutex},
 };
+use tokio::task::JoinSet;
+use tokio::io::AsyncWriteExt;
+use tokio::io::AsyncBufReadExt;
+use tokio::io::BufReader;
 
 #[derive(Parser, Clone)]
 pub struct Args {
@@ -42,8 +45,8 @@ impl Args {
     }
 }
 
-fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
-    let all_crates = client.get_crate_list()?;
+async fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
+    let all_crates = client.get_crate_list().await?;
     let crates = if let Some(crate_list) = &args.crate_list {
         let crate_list = fs::read_to_string(crate_list).unwrap();
         let all_crates: HashMap<String, Crate> = all_crates
@@ -76,7 +79,8 @@ fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
     Ok(crates)
 }
 
-pub fn run(args: Args) -> Result<()> {
+#[tokio::main]
+pub async fn run(args: Args) -> Result<()> {
     let status = std::process::Command::new("docker")
         .args([
             "build",
@@ -90,9 +94,9 @@ pub fn run(args: Args) -> Result<()> {
     color_eyre::eyre::ensure!(status.success(), "docker image build failed!");
 
     log::info!("Figuring out what crates have a build log already");
-    let client = Arc::new(Client::new(&args)?);
-    let mut crates = build_crate_list(&args, &client)?;
-    let finished_crates = client.get_finished_crates()?;
+    let client = Arc::new(Client::new(&args).await?);
+    let mut crates = build_crate_list(&args, &client).await?;
+    let finished_crates = client.get_finished_crates().await?;
     crates.retain(|krate| {
         args.rerun || !finished_crates.contains(&format!("{}/{}", krate.name, krate.version))
     });
@@ -103,7 +107,7 @@ pub fn run(args: Args) -> Result<()> {
 
     let test_end_delimiter = uuid::Uuid::new_v4().to_string();
 
-    let mut threads = Vec::new();
+    let mut tasks = JoinSet::new();
     for _ in 0..num_cpus::get() {
         let crates = crates.clone();
         let args = args.clone();
@@ -114,60 +118,64 @@ pub fn run(args: Args) -> Result<()> {
 
         let mut child = spawn_worker(&args, &test_end_delimiter);
 
-        let handle = std::thread::spawn(move || loop {
-            let mut stdout = BufReader::new(child.stdout.as_mut().unwrap());
-            let krate = match crates.lock().unwrap().pop() {
-                None => break,
-                Some(krate) => krate,
-            };
-
-            log::info!("Running {} {}", krate.name, krate.version);
-
-            child
-                .stdin
-                .as_mut()
-                .unwrap()
-                .write_all(format!("{}=={}\n", krate.name, krate.version).as_bytes())
-                .unwrap();
-
-            let mut output = String::new();
+        tasks.spawn(async move {
             loop {
-                let bytes_read = stdout.read_line(&mut output).unwrap();
-                if output.trim_end().ends_with(&test_end_delimiter_with_dashes) {
-                    output.truncate(output.len() - test_end_delimiter_with_dashes.len() - 1);
-                    break;
+                let mut stdout = BufReader::new(child.stdout.as_mut().unwrap());
+                let krate = match crates.lock().unwrap().pop() {
+                    None => break,
+                    Some(krate) => krate,
+                };
+
+                log::info!("Running {} {}", krate.name, krate.version);
+
+                child
+                    .stdin
+                    .as_mut()
+                    .unwrap()
+                    .write_all(format!("{}=={}\n", krate.name, krate.version).as_bytes())
+                    .await
+                    .unwrap();
+
+                let mut output = String::new();
+                loop {
+                    let bytes_read = stdout.read_line(&mut output).await.unwrap();
+                    if output.trim_end().ends_with(&test_end_delimiter_with_dashes) {
+                        output.truncate(output.len() - test_end_delimiter_with_dashes.len() - 1);
+                        break;
+                    }
+                    if bytes_read == 0 {
+                        break;
+                    }
                 }
-                if bytes_read == 0 {
-                    break;
+
+                // Render HTML for the stderr/stdout we captured
+                let rendered = render::render_crate(&krate, &output);
+
+                // Upload both
+                client
+                    .upload_raw(&args.tool.raw_crate_path(&krate), output.into_bytes())
+                    .await
+                    .unwrap();
+                client
+                    .upload_html(
+                        &args.tool.rendered_crate_path(&krate),
+                        rendered.into_bytes(),
+                    )
+                    .await
+                    .unwrap();
+
+                log::info!("Finished {} {}", krate.name, krate.version);
+
+                if let Ok(Some(_)) = child.try_wait() {
+                    log::warn!("A worker crashed! Standing up a new one...");
+                    child = spawn_worker(&args, &test_end_delimiter);
                 }
-            }
-
-            // Render HTML for the stderr/stdout we captured
-            let rendered = render::render_crate(&krate, &output);
-
-            // Upload both
-            client
-                .upload_raw(&args.tool.raw_crate_path(&krate), output.into_bytes())
-                .unwrap();
-            client
-                .upload_html(
-                    &args.tool.rendered_crate_path(&krate),
-                    rendered.into_bytes(),
-                )
-                .unwrap();
-
-            log::info!("Finished {} {}", krate.name, krate.version);
-
-            if let Ok(Some(_)) = child.try_wait() {
-                log::warn!("A worker crashed! Standing up a new one...");
-                child = spawn_worker(&args, &test_end_delimiter);
             }
         });
-        threads.push(handle);
     }
 
-    for t in threads {
-        t.join().unwrap();
+    while let Some(task) = tasks.join_next().await {
+        task?;
     }
 
     log::info!("done!");
@@ -175,15 +183,15 @@ pub fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-fn spawn_worker(args: &Args, test_end_delimiter: &str) -> std::process::Child {
+fn spawn_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::Child {
     match args.tool {
         Tool::Miri => spawn_miri_worker(args, test_end_delimiter),
         Tool::Asan => spawn_asan_worker(args, test_end_delimiter),
     }
 }
 
-fn spawn_asan_worker(args: &Args, test_end_delimiter: &str) -> std::process::Child {
-    std::process::Command::new("docker")
+fn spawn_asan_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::Child {
+    tokio::process::Command::new("docker")
         .args([
             "run",
             "--rm",
@@ -218,11 +226,11 @@ fn spawn_asan_worker(args: &Args, test_end_delimiter: &str) -> std::process::Chi
         .unwrap()
 }
 
-fn spawn_miri_worker(args: &Args, test_end_delimiter: &str) -> std::process::Child {
+fn spawn_miri_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::Child {
     let miri_flags = "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks \
                      -Zmiri-panic-on-unsupported";
 
-    std::process::Command::new("docker")
+    tokio::process::Command::new("docker")
         .args([
             "run",
             "--rm",

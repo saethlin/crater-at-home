@@ -4,12 +4,12 @@ use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use std::{collections::HashMap, fmt, fs, io::Read, path::Path, str::FromStr};
 
+pub mod client;
 pub mod db_dump;
 pub mod diagnose;
 pub mod render;
 pub mod run;
 pub mod sync;
-pub mod upload;
 
 use diagnose::diagnose;
 use tar::Archive;
