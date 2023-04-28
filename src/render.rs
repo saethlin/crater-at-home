@@ -295,6 +295,12 @@ input {
 </style></head><body onload="init()">
 <script>
 function init() {
+    let crate = window.location.search.substr(1);
+    let version = all[crate];
+    if (version != undefined) {
+        move_to(crate, version);
+    }
+
     document.getElementById("search").focus();
     document.getElementById("search").addEventListener("change", (event) => {
         let crate = event.target.value;
