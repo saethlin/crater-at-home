@@ -9,13 +9,13 @@ pub struct Client {
 }
 
 impl Client {
-    pub async fn new(args: &crate::run::Args) -> Result<Self> {
+    pub async fn new(tool: Tool, bucket: &str) -> Result<Self> {
         let config = aws_config::load_from_env().await;
         let inner = aws_sdk_s3::Client::new(&config);
         Ok(Self {
             inner,
-            bucket: args.bucket.clone(),
-            tool: args.tool,
+            bucket: bucket.to_string(),
+            tool,
         })
     }
 
@@ -85,6 +85,39 @@ impl Client {
             }
         }
         Ok(files)
+    }
+
+    pub async fn list_rendered_crates(&self) -> Result<Vec<String>> {
+        let prefix = format!("{}/", self.tool.html_path());
+        let mut res = self
+            .inner
+            .list_objects_v2()
+            .bucket(&self.bucket)
+            .prefix(&prefix)
+            .into_paginator()
+            .send();
+        let mut files = Vec::new();
+        while let Some(res) = res.next().await {
+            let page = res?;
+            for obj in page.contents().unwrap_or_default() {
+                if let Some(key) = obj.key().and_then(|key| key.strip_prefix(&prefix)) {
+                    files.push(key.to_string());
+                }
+            }
+        }
+        Ok(files)
+    }
+
+    pub async fn upload_landing_page(&self, data: Vec<u8>) -> Result<()> {
+        self.inner
+            .put_object()
+            .bucket(&self.bucket)
+            .key(self.tool.landing_page_path())
+            .body(data.into())
+            .content_type("text/html")
+            .send()
+            .await?;
+        Ok(())
     }
 }
 

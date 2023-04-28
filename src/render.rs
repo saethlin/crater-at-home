@@ -1,21 +1,6 @@
-//use crate::load_completed_crates;
 use crate::{Crate, Status};
-use clap::Parser;
 use color_eyre::eyre::Result;
 use std::fmt::Write;
-
-#[derive(Parser)]
-pub struct Args {}
-
-pub fn run(_args: Args) -> Result<()> {
-    /*
-    let crates = load_completed_crates()?;
-
-    log::info!("Rendering");
-    render(&crates)
-    */
-    Ok(())
-}
 
 /*
 fn render(crates: &HashMap<String, Vec<Crate>>) -> Result<()> {
@@ -293,7 +278,7 @@ pub fn render_ub(crates: &[Crate]) -> Result<String> {
     Ok(output)
 }
 
-const LANDING_PAGE: &str = r#"<!DOCTYPE HTML>
+pub const LANDING_PAGE: &str = r#"<!DOCTYPE HTML>
 <html><head><style>
 body {
     background: #111;
@@ -325,8 +310,8 @@ function init() {
     }
 }
 function move_to(crate, version) {
-    let base = window.location.origin + window.location.pathname;
-    window.location.href = base + "logs/" + crate + "/" + version + ".html"
+    let base = window.location.origin;
+    window.location.href = base + "/miri/logs/" + crate + "/" + version
 }
 function decode_params() {
     var params = {};

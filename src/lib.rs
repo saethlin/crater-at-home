@@ -42,6 +42,13 @@ impl Tool {
     pub fn rendered_crate_path(self, krate: &Crate) -> String {
         format!("{}/{}/{}", self.html_path(), krate.name, krate.version)
     }
+
+    pub fn landing_page_path(self) -> &'static str {
+        match self {
+            Tool::Miri => "miri/index.html",
+            Tool::Asan => "asan/index.html",
+        }
+    }
 }
 
 impl fmt::Display for Tool {

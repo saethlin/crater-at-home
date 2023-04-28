@@ -7,10 +7,10 @@ use std::{
     process::Stdio,
     sync::{Arc, Mutex},
 };
-use tokio::task::JoinSet;
-use tokio::io::AsyncWriteExt;
-use tokio::io::AsyncBufReadExt;
-use tokio::io::BufReader;
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    task::JoinSet,
+};
 
 #[derive(Parser, Clone)]
 pub struct Args {
@@ -94,7 +94,7 @@ pub async fn run(args: Args) -> Result<()> {
     color_eyre::eyre::ensure!(status.success(), "docker image build failed!");
 
     log::info!("Figuring out what crates have a build log already");
-    let client = Arc::new(Client::new(&args).await?);
+    let client = Arc::new(Client::new(args.tool, &args.bucket).await?);
     let mut crates = build_crate_list(&args, &client).await?;
     let finished_crates = client.get_finished_crates().await?;
     crates.retain(|krate| {
