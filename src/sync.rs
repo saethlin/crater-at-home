@@ -32,7 +32,7 @@ pub async fn run(args: Args) -> Result<()> {
         .send()
         .await?;
 
-    log::info!("Upadating the cached crates.io database dump");
+    log::info!("Updating the cached crates.io database dump");
     let crates = db_dump::download()?;
     let mut output = Vec::new();
     for krate in crates.iter().cloned() {
