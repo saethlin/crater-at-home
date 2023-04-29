@@ -48,6 +48,7 @@ pre {{
     -moz-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
 }}
+{}
 </style><title>{} {}</title></head>
 <script>
 function scroll_to_ub() {{
@@ -63,7 +64,7 @@ function scroll_to_ub() {{
 }
 
 pub fn render_crate(krate: &Crate, output: &str) -> String {
-    let mut encoded = ansi_to_html::convert_escaped(output);
+    let (css, mut encoded) = ansi_to_html::convert_escaped(output);
 
     // Remove blank rows from the bottom of the terminal output
     let ending = "\n</span>";
@@ -84,7 +85,7 @@ pub fn render_crate(krate: &Crate, output: &str) -> String {
         }
     }
 
-    format!(log_format!(), krate.name, krate.version, encoded)
+    format!(log_format!(), css, krate.name, krate.version, encoded)
 }
 
 const OUTPUT_HEADER: &str = r#"<!DOCTYPE HTML>
@@ -285,6 +286,7 @@ body {
     color: #eee;
     font-family: sans-serif;
     font-size: 20px;
+    visibility: hidden;
 }
 input {
     background: #111;
@@ -300,6 +302,7 @@ function init() {
     if (version != undefined) {
         move_to(crate, version);
     }
+    document.getElementsByTagName("body")[0].style.visibility = "visible";
 
     document.getElementById("search").focus();
     document.getElementById("search").addEventListener("change", (event) => {

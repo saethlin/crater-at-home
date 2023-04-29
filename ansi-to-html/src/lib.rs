@@ -4,7 +4,7 @@ mod renderer;
 
 use renderer::Renderer;
 
-pub fn convert_escaped(ansi: &str) -> String {
+pub fn convert_escaped(ansi: &str) -> (String, String) {
     let mut renderer = Renderer::default();
     let mut parser = vte::Parser::new();
     for byte in ansi.as_bytes() {
@@ -12,5 +12,5 @@ pub fn convert_escaped(ansi: &str) -> String {
     }
     let mut html = String::new();
     renderer.emit_html(&mut html);
-    html
+    (renderer.emit_css(), html)
 }

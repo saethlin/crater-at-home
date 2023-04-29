@@ -1,4 +1,5 @@
 use crate::ansi::Color;
+use std::collections::HashMap;
 
 pub struct Renderer {
     pub bold: bool,
@@ -9,6 +10,32 @@ pub struct Renderer {
     pub background: Color,
     current_row: usize,
     rows: Vec<Row>,
+    styles: Styles,
+}
+
+#[derive(Default)]
+struct Styles {
+    known: HashMap<(Color, bool), String>,
+}
+
+const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
+const BASE: usize = ALPHABET.len();
+
+impl Styles {
+    fn get(&mut self, color: Color, bold: bool) -> &str {
+        let mut next_idx = self.known.len();
+        self.known.entry((color, bold)).or_insert_with(|| {
+            let mut name = String::new();
+            loop {
+                name.push(ALPHABET[next_idx % BASE] as char);
+                next_idx /= BASE;
+                if next_idx == 0 {
+                    break;
+                }
+            }
+            name
+        })
+    }
 }
 
 struct Row {
@@ -42,14 +69,6 @@ impl Row {
         }
         self.position += 1;
     }
-
-    /*
-    pub fn pop_blank_cells(&mut self) {
-        while self.cells.last().map(|c| c.text) == Some(' ') {
-            self.cells.pop();
-        }
-    }
-    */
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -74,6 +93,7 @@ impl Default for Renderer {
             background: Color::black(),
             current_row: 0,
             rows: vec![Row::new()],
+            styles: Styles::default(),
         }
     }
 }
@@ -165,27 +185,44 @@ impl Renderer {
         html.push_str("<span>");
 
         for row in &mut self.rows[..self.current_row] {
-            //row.pop_blank_cells(); // TODO: A fun optimization?
             let row = &*row;
             for cell in &row.cells {
-                if cell.bold != prev.bold || cell.foreground != prev.foreground {
-                    html.push_str("</span>");
-                    html.push_str("<span style='color:");
-                    html.push_str(cell.foreground.as_str());
-                    html.push_str("; font-weight:");
-                    html.push_str(if cell.bold { "bold" } else { "normal" });
-                    html.push_str("'>");
+                // Terminal applications will often reset the style right after some formatted text
+                // then write some whitespace then set it to something again.
+                // So we only apply style changes if the cell is nonempty. This is a ~50% savings
+                // in emitted HTML.
+                if cell.text != ' ' {
+                    if cell.bold != prev.bold || cell.foreground != prev.foreground {
+                        let class = self.styles.get(cell.foreground, cell.bold);
+                        html.push_str("</span><span class='");
+                        html.push_str(class);
+                        html.push_str("'>");
+                    }
+                    prev = cell.clone();
                 }
                 match cell.text {
                     '<' => html.push_str("&lt"),
                     '>' => html.push_str("&gt"),
                     c => html.push(c),
                 }
-                prev = cell.clone();
             }
             html.push('\n');
         }
         html.push_str("</span>");
+    }
+
+    pub fn emit_css(&self) -> String {
+        let mut css = String::new();
+        for ((color, bold), name) in self.styles.known.iter() {
+            let line = format!(
+                ".{}{{color:{};font-weight:{}}}\n",
+                name,
+                color.as_str(),
+                if *bold { "bold" } else { "normal" }
+            );
+            css.push_str(&line);
+        }
+        css
     }
 
     /*

@@ -2,6 +2,7 @@ use crate::{Crate, Status, Tool, Version};
 use color_eyre::Result;
 use futures_util::StreamExt;
 
+#[derive(Clone)]
 pub struct Client {
     inner: aws_sdk_s3::Client,
     bucket: String,
@@ -19,11 +20,11 @@ impl Client {
         })
     }
 
-    pub async fn upload_raw(&self, path: &str, data: Vec<u8>) -> Result<()> {
+    pub async fn upload_raw(&self, krate: &Crate, data: Vec<u8>) -> Result<()> {
         self.inner
             .put_object()
             .bucket(&self.bucket)
-            .key(path)
+            .key(self.tool.raw_crate_path(krate))
             .body(data.into())
             .content_type("text/plain")
             .send()
@@ -31,11 +32,29 @@ impl Client {
         Ok(())
     }
 
-    pub async fn upload_html(&self, path: &str, data: Vec<u8>) -> Result<()> {
+    pub async fn download_raw(&self, krate: &Crate) -> Result<String> {
+        let response = self
+            .inner
+            .get_object()
+            .bucket(&self.bucket)
+            .key(format!(
+                "{}/{}/{}",
+                self.tool.raw_path(),
+                krate.name,
+                krate.version
+            ))
+            .send()
+            .await?;
+        let bytes = response.body.collect().await?;
+        let blob = bytes.to_vec();
+        Ok(String::from_utf8(blob).unwrap())
+    }
+
+    pub async fn upload_html(&self, krate: &Crate, data: Vec<u8>) -> Result<()> {
         self.inner
             .put_object()
             .bucket(&self.bucket)
-            .key(path)
+            .key(self.tool.rendered_crate_path(krate))
             .body(data.into())
             .content_type("text/html")
             .send()
@@ -66,7 +85,7 @@ impl Client {
         Ok(crates)
     }
 
-    pub async fn get_finished_crates(&self) -> Result<Vec<String>> {
+    pub async fn list_finished_crates(&self) -> Result<Vec<Crate>> {
         let prefix = format!("{}/", self.tool.raw_path());
         let mut res = self
             .inner
@@ -80,7 +99,15 @@ impl Client {
             let page = res?;
             for obj in page.contents().unwrap_or_default() {
                 if let Some(key) = obj.key().and_then(|key| key.strip_prefix(&prefix)) {
-                    files.push(key.to_string());
+                    let mut it = key.split('/');
+                    let Some(name) = it.next() else { continue; };
+                    let Some(version) = it.next() else { continue; };
+                    files.push(Crate {
+                        name: name.to_string(),
+                        version: Version::parse(version),
+                        status: Status::Unknown,
+                        recent_downloads: None,
+                    });
                 }
             }
         }

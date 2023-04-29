@@ -96,9 +96,12 @@ pub async fn run(args: Args) -> Result<()> {
     log::info!("Figuring out what crates have a build log already");
     let client = Arc::new(Client::new(args.tool, &args.bucket).await?);
     let mut crates = build_crate_list(&args, &client).await?;
-    let finished_crates = client.get_finished_crates().await?;
+    let finished_crates = client.list_finished_crates().await?;
     crates.retain(|krate| {
-        args.rerun || !finished_crates.contains(&format!("{}/{}", krate.name, krate.version))
+        args.rerun
+            || !finished_crates
+                .iter()
+                .any(|c| c.name == krate.name && c.version == krate.version)
     });
 
     // We are going to pop crates from this, so we now need to invert the order
@@ -153,14 +156,11 @@ pub async fn run(args: Args) -> Result<()> {
 
                 // Upload both
                 client
-                    .upload_raw(&args.tool.raw_crate_path(&krate), output.into_bytes())
+                    .upload_raw(&krate, output.into_bytes())
                     .await
                     .unwrap();
                 client
-                    .upload_html(
-                        &args.tool.rendered_crate_path(&krate),
-                        rendered.into_bytes(),
-                    )
+                    .upload_html(&krate, rendered.into_bytes())
                     .await
                     .unwrap();
 

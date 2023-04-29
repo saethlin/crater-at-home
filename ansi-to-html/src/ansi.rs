@@ -70,7 +70,7 @@ pub mod C0 {
     pub const DEL: u8 = 0x7f;
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Color {
     EightBit(u8),
     Rgb([u8; 7]),
