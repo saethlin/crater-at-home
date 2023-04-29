@@ -301,6 +301,7 @@ function init() {
     let version = all[crate];
     if (version != undefined) {
         move_to(crate, version);
+        return;
     }
     document.getElementsByTagName("body")[0].style.visibility = "visible";
 
