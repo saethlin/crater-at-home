@@ -1,4 +1,4 @@
-use crate::{client::Client, db_dump, render, Tool};
+use crate::{client::Client, db_dump, render, Crate, Tool};
 use clap::Parser;
 use color_eyre::{Report, Result};
 use std::{fmt::Write, sync::Arc};
@@ -50,12 +50,22 @@ pub async fn run(args: Args) -> Result<()> {
         .await?;
 
     log::info!("Downloading, rendering, and uploading rendered HTML for all crates");
-    sync_all_html(client.clone()).await?;
+    let crates = sync_all_html(client.clone()).await?;
+
+    let ub_page = crate::render::render_ub(&crates)?;
+    aws_client
+        .put_object()
+        .bucket(&args.bucket)
+        .key("miri/ub")
+        .body(ub_page.into_bytes().into())
+        .content_type("text/html")
+        .send()
+        .await?;
 
     Ok(())
 }
 
-async fn sync_all_html(client: Arc<Client>) -> Result<()> {
+async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
     let all = client.list_finished_crates().await?;
     log::info!("Re-rendering HTML for {} crates", all.len());
     let mut tasks = JoinSet::new();
@@ -68,25 +78,25 @@ async fn sync_all_html(client: Arc<Client>) -> Result<()> {
             let raw = client.download_raw(&krate).await?;
             let rendered = render::render_crate(&krate, &raw);
             client.upload_html(&krate, rendered.into_bytes()).await?;
-            drop(permit); // Ensure the permit is released only once we are done with this task
-            Ok::<_, Report>(())
+            // Ensure the permit is released once we are done with the client
+            drop(permit);
+            let mut krate = krate;
+            crate::diagnose(&mut krate, &raw)?;
+            Ok::<_, Report>(krate)
         });
     }
+    let mut crates = Vec::new();
     while let Some(task) = tasks.join_next().await {
-        task??;
+        let krate = task??;
+        crates.push(krate);
     }
-    Ok(())
+
+    Ok(crates)
 }
 
 async fn sync_landing_page(client: &Client) -> Result<()> {
-    // Download the crate list so we know what the ordering is
-    //let crates = client.get_crate_list().await?;
-    //let ranks: HashMap<_, _> = crates.iter().enumerate().map(|(index, krate)| (&krate.name, index)).collect();
-
     // List all rendered HTML
     let rendered = client.list_rendered_crates().await?;
-
-    println!("{:?}", rendered.len());
 
     let mut output = String::from(crate::render::LANDING_PAGE);
     for c in &rendered {

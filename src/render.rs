@@ -2,34 +2,6 @@ use crate::{Crate, Status};
 use color_eyre::eyre::Result;
 use std::fmt::Write;
 
-/*
-fn render(crates: &HashMap<String, Vec<Crate>>) -> Result<()> {
-    let flat_crates = crates.values().flat_map(|v| &v[..]).collect::<Vec<_>>();
-    flat_crates.par_iter().try_for_each(|krate| -> Result<()> {
-        let path = format!("logs/{}/{}", krate.name, krate.version);
-        if let Ok(output) = fs::read_to_string(path) {
-            write_crate_output(krate, &output)?;
-        }
-        Ok(())
-    })?;
-
-    let mut crates = crates
-        .iter()
-        .filter_map(|(name, c)| {
-            let version = c.iter().max_by(|a, b| a.version.cmp(&b.version));
-            if version.is_none() {
-                log::warn!("No versions found for {:?}", name);
-            }
-            version
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
-
-    write_output(&crates)
-}
-*/
-
 #[rustfmt::skip]
 macro_rules! log_format {
     () => {
@@ -165,7 +137,7 @@ function crate_click() {
 }
 let build_log;
 function change_log(crate, version) {
-    let html = "<object data=\"logs/" + crate + "/" + version + ".html\" width=100% height=100%></object>";
+    let html = "<object data=\"/miri/logs/" + crate + "/" + version + "\" width=100% height=100%></object>";
     if (build_log == undefined)  {
         build_log = document.getElementById("log");
     }
@@ -215,46 +187,6 @@ Click on a crate to the right to display its build log
 </div>
 <div class="crates" onclick=crate_click()>
 "#;
-
-pub fn render_index(crates: &[Crate]) -> Result<String> {
-    let mut output = String::from(LANDING_PAGE);
-    for c in crates {
-        writeln!(output, "\"{}\": [\"{}\"],", c.name, c.version)?;
-    }
-    output.pop();
-    output.push_str("};</script></html>");
-    Ok(output)
-}
-
-pub fn render_all(crates: &[Crate]) -> Result<String> {
-    let mut output = String::new();
-    writeln!(output, "{}", OUTPUT_HEADER)?;
-    for c in crates {
-        write!(output, "<div class=\"row\">{} {}<br>", c.name, c.version,)?;
-        match &c.status {
-            Status::Unknown => write!(output, "Unknown"),
-            Status::Passing => write!(output, "Passing"),
-            Status::Error(cause) => write!(output, "Error: {}", cause),
-            Status::UB { cause: causes, .. } => {
-                write!(output, "UB: ")?;
-                for cause in causes {
-                    write!(output, "{}", cause.kind)?;
-                    if let Some(source_crate) = &cause.source_crate {
-                        write!(output, " ({source_crate})")?;
-                    }
-                    write!(output, ", ")?;
-                }
-                output.pop();
-                output.pop();
-                Ok(())
-            }
-        }?;
-        writeln!(output, "</div>")?;
-    }
-    write!(output, "</div></body></html>")?;
-
-    Ok(output)
-}
 
 pub fn render_ub(crates: &[Crate]) -> Result<String> {
     let mut output = String::new();

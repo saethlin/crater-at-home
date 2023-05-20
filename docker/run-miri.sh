@@ -13,7 +13,7 @@ do
         ARGS=$(python3 /root/get-args.py $crate)
         cargo +nightly update &> /dev/null
         cargo +nightly miri test --no-run --jobs=1 $ARGS &> /dev/null
-        MIRIFLAGS="$MIRIFLAGS --color=always" unbuffer -p cargo +nightly miri nextest run --color=always --no-fail-fast --config-file=/root/.cargo/nextest.toml --jobs=1 $ARGS
+        MIRIFLAGS="$MIRIFLAGS --color=always" timeout --kill-after=10 3600 unbuffer -p cargo +nightly miri nextest run --color=always --no-fail-fast --config-file=/root/.cargo/nextest.toml --jobs=1 $ARGS
         timeout --kill-after=10 600 unbuffer -p cargo +nightly miri test --doc --no-fail-fast --jobs=1 $ARGS
     fi
     echo "-${TEST_END_DELIMITER}-"

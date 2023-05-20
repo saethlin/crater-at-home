@@ -11,7 +11,6 @@ log = "0.4.17"
 serde = { version = "1.0.140", features = ["derive"] }
 ansi-to-html = { path = "ansi-to-html" }
 color-eyre = "0.6.2"
-rayon = "1.5.3"
 semver = "1.0.12"
 tar = "0.4.38"
 flate2 = "1.0.24"
