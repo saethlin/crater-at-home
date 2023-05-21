@@ -137,7 +137,7 @@ function crate_click() {
 }
 let build_log;
 function change_log(crate, version) {
-    let html = "<object data=\"/miri/logs/" + crate + "/" + version + "\" width=100% height=100%></object>";
+    let html = "<object data=\"/logs/" + crate + "/" + version + "\" width=100% height=100%></object>";
     if (build_log == undefined)  {
         build_log = document.getElementById("log");
     }
@@ -253,7 +253,7 @@ function init() {
 }
 function move_to(crate, version) {
     let base = window.location.origin;
-    window.location.href = base + "/miri/logs/" + crate + "/" + version
+    window.location.href = base + "/logs/" + crate + "/" + version
 }
 function decode_params() {
     var params = {};
