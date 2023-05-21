@@ -9,22 +9,28 @@ on:
 name: CI
 
 jobs:
-  build_and_test:
+  style:
     runs-on: ubuntu-latest
-    name: Build and Test
+    name: Style Checks
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
 
-      - name: Build
-        run: cargo build
-
       - name: Style
         run: |
           cargo fmt --check
           cargo clippy -- -Dclippy::all
+
+  test:
+    runs-on: ubuntu-latest
+    name: Test
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Run
         env:
