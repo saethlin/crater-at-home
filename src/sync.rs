@@ -1,7 +1,7 @@
 use crate::{client::Client, db_dump, render, Crate, Tool};
 use clap::Parser;
 use color_eyre::{Report, Result};
-use std::{fmt::Write, sync::Arc};
+use std::{fmt::Write, sync::Arc, collections::HashMap};
 use tokio::{sync::Semaphore, task::JoinSet};
 
 #[derive(Parser)]
@@ -34,6 +34,7 @@ pub async fn run(args: Args) -> Result<()> {
 
     log::info!("Updating the cached crates.io database dump");
     let crates = db_dump::download()?;
+    let name_to_downloads: HashMap<_, _> = crates.iter().map(|c| (c.name.clone(), c.recent_downloads)).collect();
     let mut output = Vec::new();
     for krate in crates.iter().cloned() {
         output.push((krate.name, krate.version));
@@ -50,7 +51,14 @@ pub async fn run(args: Args) -> Result<()> {
         .await?;
 
     log::info!("Downloading, rendering, and uploading rendered HTML for all crates");
-    let crates = sync_all_html(client.clone()).await?;
+    let mut crates = sync_all_html(client.clone()).await?;
+
+    // Sort crates by recent downloads, descending
+    crates.sort_by(|a, b| {
+        let a = name_to_downloads.get(&a.name).cloned().flatten();
+        let b = name_to_downloads.get(&b.name).cloned().flatten();
+        b.cmp(&a)
+    });
 
     let ub_page = crate::render::render_ub(&crates)?;
     aws_client
