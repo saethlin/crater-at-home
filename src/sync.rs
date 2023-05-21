@@ -15,17 +15,14 @@ pub struct Args {
 
 #[tokio::main]
 pub async fn run(args: Args) -> Result<()> {
-    log::info!("Rendering fresh landing page...");
     let client = Arc::new(Client::new(args.tool, &args.bucket).await?);
-    sync_landing_page(&client).await?;
-    log::info!("New landing page uploaded");
 
-    let config = aws_config::load_from_env().await;
-    let aws_client = Arc::new(aws_sdk_s3::Client::new(&config));
+    log::info!("Rendering fresh landing page");
+    sync_landing_page(&client).await?;
+
     log::info!("Uploading the error page");
-    aws_client
+    client
         .put_object()
-        .bucket(&args.bucket)
         .key("403")
         .body(ERROR_PAGE.as_bytes().to_vec().into())
         .content_type("text/html")
@@ -44,9 +41,8 @@ pub async fn run(args: Args) -> Result<()> {
     }
     let serialized = serde_json::to_string(&output).unwrap();
 
-    aws_client
+    client
         .put_object()
-        .bucket(&args.bucket)
         .key("crates.json")
         .body(serialized.into_bytes().into())
         .content_type("application/json")
@@ -64,9 +60,8 @@ pub async fn run(args: Args) -> Result<()> {
     });
 
     let ub_page = crate::render::render_ub(&crates)?;
-    aws_client
+    client
         .put_object()
-        .bucket(&args.bucket)
         .key("miri/ub")
         .body(ub_page.into_bytes().into())
         .content_type("text/html")
