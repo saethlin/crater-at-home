@@ -8,7 +8,7 @@ static ANSI_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new("\x1b(\\[[0-9;?]*[A-HJKSTfhilmnsu]|\\(B)").unwrap());
 
 pub fn diagnose(krate: &mut Crate, output: &str) -> Result<()> {
-    let output = ANSI_REGEX.replace_all(&output, "").to_string();
+    let output = ANSI_REGEX.replace_all(output, "").to_string();
     // Strip ANSI escape codes from the output;
     krate.status = if output.contains("Undefined Behavior: ") {
         Status::UB {
