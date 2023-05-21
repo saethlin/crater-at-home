@@ -21,14 +21,18 @@ jobs:
       - name: Build
         run: cargo build
 
-      - name: Formatting
+      - name: Style
         run: |
           cargo fmt --check
           cargo clippy -- -Dclippy::all
 
       - name: Run
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          cargo run -- run --tool=miri --crates=10
-          cargo run -- run --tool=asan --crates=10
-          cargo run -- render
-          cargo run -- uploader -- --help
+          cargo run -- sync --tool=miri --bucket=miri-bot-dev
+          cargo run -- run --tool=miri --crates=10 --bucket=miri-bot-dev
+          cargo run -- sync --tool=miri --bucket=miri-bot-dev
+          cargo run -- run --tool=asan --crates=10 --bucket=miri-bot-dev
+          cargo run -- sync --tool=asan --bucket=miri-bot-dev
