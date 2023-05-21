@@ -30,8 +30,9 @@ function scroll_to_ub() {{
     }}
 }}
 </script>
-<body onload="scroll_to_ub()"><pre>
-{}</pre></body></html>"#
+<body onload="scroll_to_ub()">
+<pre style="text-align: center;">{} {}</pre>
+<pre>{}</pre></body></html>"#
     }
 }
 
@@ -57,7 +58,10 @@ pub fn render_crate(krate: &Crate, output: &str) -> String {
         }
     }
 
-    format!(log_format!(), css, krate.name, krate.version, encoded)
+    format!(
+        log_format!(),
+        css, krate.name, krate.version, krate.name, krate.version, encoded
+    )
 }
 
 const OUTPUT_HEADER: &str = r#"<!DOCTYPE HTML>
