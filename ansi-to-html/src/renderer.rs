@@ -158,7 +158,7 @@ impl Renderer {
         if mode == Some(2) {
             return;
         }
-        // println!("erase_in_display {:?}", mode);
+        log::warn!("Unimplemented erase_in_display {:?}", mode);
     }
 
     pub fn erase_in_line(&mut self, mode: Option<u16>) {

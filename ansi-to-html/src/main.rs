@@ -25,6 +25,7 @@ pre {{
 }
 
 fn main() {
+    env_logger::init();
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input).unwrap();
     let (css, html) = ansi_to_html::convert_escaped(&input);
