@@ -1,5 +1,4 @@
 use crate::{Cause, Crate, Status};
-use std::fs;
 
 use color_eyre::Result;
 use once_cell::sync::Lazy;
@@ -8,49 +7,46 @@ use regex::Regex;
 static ANSI_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new("\x1b(\\[[0-9;?]*[A-HJKSTfhilmnsu]|\\(B)").unwrap());
 
-pub fn diagnose(krate: &mut Crate) -> Result<()> {
-    let path = format!("logs/{}/{}", krate.name, krate.version);
-    if let Ok(output) = fs::read_to_string(path) {
-        let output = ANSI_REGEX.replace_all(&output, "").to_string();
-        // Strip ANSI escape codes from the output;
-        krate.status = if output.contains("Undefined Behavior: ") {
-            Status::UB {
-                cause: diagnose_output(&output),
-            }
-        } else if output.contains("ERROR: AddressSanitizer: ") {
-            if output
-                .contains("WARNING: ASan is ignoring requested __asan_handle_no_return: stack type")
-            {
-                Status::Error("ASan false positive?".to_string())
-            } else {
-                Status::UB {
-                    cause: diagnose_asan(&output),
-                }
-            }
-        } else if output.contains("SIGILL: illegal instruction") {
-            Status::UB {
-                cause: vec![Cause {
-                    kind: "SIGILL debug assertion".to_string(),
-                    source_crate: None,
-                }],
-            }
-        } else if output.contains("attempted to leave type") {
-            Status::UB {
-                cause: vec![Cause {
-                    kind: "uninit type which does not permit uninit".to_string(),
-                    source_crate: None,
-                }],
-            }
-        } else if output.contains("Command exited with non-zero status 124") {
-            Status::Error("Timeout".to_string())
-        } else if output.contains("Command exited with non-zero status 255") {
-            Status::Error("OOM".to_string())
-        } else if output.contains("Command exited with non-zero status") {
-            Status::Error(String::new())
+pub fn diagnose(krate: &mut Crate, output: &str) -> Result<()> {
+    let output = ANSI_REGEX.replace_all(output, "").to_string();
+    // Strip ANSI escape codes from the output;
+    krate.status = if output.contains("Undefined Behavior: ") {
+        Status::UB {
+            cause: diagnose_output(&output),
+        }
+    } else if output.contains("ERROR: AddressSanitizer: ") {
+        if output
+            .contains("WARNING: ASan is ignoring requested __asan_handle_no_return: stack type")
+        {
+            Status::Error("ASan false positive?".to_string())
         } else {
-            Status::Passing
-        };
-    }
+            Status::UB {
+                cause: diagnose_asan(&output),
+            }
+        }
+    } else if output.contains("SIGILL: illegal instruction") {
+        Status::UB {
+            cause: vec![Cause {
+                kind: "SIGILL debug assertion".to_string(),
+                source_crate: None,
+            }],
+        }
+    } else if output.contains("attempted to leave type") {
+        Status::UB {
+            cause: vec![Cause {
+                kind: "uninit type which does not permit uninit".to_string(),
+                source_crate: None,
+            }],
+        }
+    } else if output.contains("Command exited with non-zero status 124") {
+        Status::Error("Timeout".to_string())
+    } else if output.contains("Command exited with non-zero status 255") {
+        Status::Error("OOM".to_string())
+    } else if output.contains("Command exited with non-zero status") {
+        Status::Error(String::new())
+    } else {
+        Status::Passing
+    };
     Ok(())
 }
 
@@ -101,7 +97,7 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
                     None
                 }
             })
-            .unwrap();
+            .unwrap_or(l + 1);
 
         let kind;
         if line.contains("Data race detected") {

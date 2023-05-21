@@ -12,7 +12,7 @@ struct PublishedCrate {
     version: Version,
 }
 
-pub fn download() -> Result<Vec<crate::Crate>> {
+pub fn download() -> Result<Vec<Crate>> {
     log::info!("Downloading crate database");
 
     let mut archive = Vec::new();
@@ -84,7 +84,6 @@ pub fn download() -> Result<Vec<crate::Crate>> {
                 recent_downloads: Some(krate.recent_downloads),
                 version: krate.version,
                 status: Status::Unknown,
-                time: None,
             })
         })
         .collect::<Vec<_>>();

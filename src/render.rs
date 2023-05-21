@@ -1,51 +1,6 @@
+use crate::{Crate, Status};
 use color_eyre::eyre::Result;
-use miri_the_world::{Crate, Status};
-use rayon::prelude::*;
-use std::{collections::HashMap, fmt::Write, fs, path::PathBuf};
-
-use miri_the_world::load_completed_crates;
-
-fn main() -> Result<()> {
-    if std::env::var("RUST_BACKTRACE").is_err() {
-        std::env::set_var("RUST_BACKTRACE", "1");
-    }
-    if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "info");
-    }
-    env_logger::init();
-    color_eyre::install()?;
-
-    let crates = load_completed_crates()?;
-
-    log::info!("Rendering");
-    render(&crates)
-}
-
-fn render(crates: &HashMap<String, Vec<Crate>>) -> Result<()> {
-    let flat_crates = crates.values().flat_map(|v| &v[..]).collect::<Vec<_>>();
-    flat_crates.par_iter().try_for_each(|krate| -> Result<()> {
-        let path = format!("logs/{}/{}", krate.name, krate.version);
-        if let Ok(output) = fs::read_to_string(path) {
-            write_crate_output(krate, &output)?;
-        }
-        Ok(())
-    })?;
-
-    let mut crates = crates
-        .iter()
-        .filter_map(|(name, c)| {
-            let version = c.iter().max_by(|a, b| a.version.cmp(&b.version));
-            if version.is_none() {
-                log::warn!("No versions found for {:?}", name);
-            }
-            version
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
-
-    write_output(&crates)
-}
+use std::fmt::Write;
 
 #[rustfmt::skip]
 macro_rules! log_format {
@@ -65,6 +20,7 @@ pre {{
     -moz-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
 }}
+{}
 </style><title>{} {}</title></head>
 <script>
 function scroll_to_ub() {{
@@ -75,13 +31,18 @@ function scroll_to_ub() {{
 }}
 </script>
 <body onload="scroll_to_ub()"><pre>
-{}
-</pre></body></html>"#
+{}</pre></body></html>"#
     }
 }
 
-fn write_crate_output(krate: &Crate, output: &str) -> Result<()> {
-    let mut encoded = ansi_to_html::convert_escaped(output);
+pub fn render_crate(krate: &Crate, output: &str) -> String {
+    let (css, mut encoded) = ansi_to_html::convert_escaped(output);
+
+    // Remove blank rows from the bottom of the terminal output
+    let ending = "\n</span>";
+    while encoded.ends_with(ending) {
+        encoded.remove(encoded.len() - ending.len());
+    }
 
     for pat in [
         "Undefined Behavior:",
@@ -96,21 +57,7 @@ fn write_crate_output(krate: &Crate, output: &str) -> Result<()> {
         }
     }
 
-    fs::create_dir_all(format!("logs/{}", krate.name))?;
-
-    let path = PathBuf::from(format!("logs/{}/{}.html", krate.name, krate.version));
-    let html = format!(log_format!(), krate.name, krate.version, encoded);
-
-    if path.exists() {
-        let previous = std::fs::read_to_string(&path)?;
-        if previous != html {
-            std::fs::write(path, html)?;
-        }
-    } else {
-        std::fs::write(path, html)?;
-    }
-
-    Ok(())
+    format!(log_format!(), css, krate.name, krate.version, encoded)
 }
 
 const OUTPUT_HEADER: &str = r#"<!DOCTYPE HTML>
@@ -190,7 +137,7 @@ function crate_click() {
 }
 let build_log;
 function change_log(crate, version) {
-    let html = "<object data=\"logs/" + crate + "/" + version + ".html\" width=100% height=100%></object>";
+    let html = "<object data=\"/logs/" + crate + "/" + version + "\" width=100% height=100%></object>";
     if (build_log == undefined)  {
         build_log = document.getElementById("log");
     }
@@ -241,45 +188,7 @@ Click on a crate to the right to display its build log
 <div class="crates" onclick=crate_click()>
 "#;
 
-fn write_output(crates: &[Crate]) -> Result<()> {
-    let mut output = String::from(LANDING_PAGE);
-    for c in crates {
-        writeln!(output, "\"{}\": [\"{}\"],", c.name, c.version)?;
-    }
-    output.pop();
-    output.push_str("};</script></html>");
-    fs::write(".index.html", output)?;
-    fs::rename(".index.html", "index.html")?;
-
-    let mut output = String::new();
-    writeln!(output, "{}", OUTPUT_HEADER)?;
-    for c in crates {
-        write!(output, "<div class=\"row\">{} {}<br>", c.name, c.version,)?;
-        match &c.status {
-            Status::Unknown => write!(output, "Unknown"),
-            Status::Passing => write!(output, "Passing"),
-            Status::Error(cause) => write!(output, "Error: {}", cause),
-            Status::UB { cause: causes, .. } => {
-                write!(output, "UB: ")?;
-                for cause in causes {
-                    write!(output, "{}", cause.kind)?;
-                    if let Some(source_crate) = &cause.source_crate {
-                        write!(output, " ({source_crate})")?;
-                    }
-                    write!(output, ", ")?;
-                }
-                output.pop();
-                output.pop();
-                Ok(())
-            }
-        }?;
-        writeln!(output, "</div>")?;
-    }
-    write!(output, "</div></body></html>")?;
-
-    fs::write(".all.html", output)?;
-    fs::rename(".all.html", "all.html")?;
-
+pub fn render_ub(crates: &[Crate]) -> Result<String> {
     let mut output = String::new();
     writeln!(output, "{}", OUTPUT_HEADER)?;
     for c in crates {
@@ -299,18 +208,17 @@ fn write_output(crates: &[Crate]) -> Result<()> {
         }
     }
 
-    fs::write(".ub", output)?;
-    fs::rename(".ub", "ub")?;
-    Ok(())
+    Ok(output)
 }
 
-const LANDING_PAGE: &str = r#"<!DOCTYPE HTML>
+pub const LANDING_PAGE: &str = r#"<!DOCTYPE HTML>
 <html><head><style>
 body {
     background: #111;
     color: #eee;
     font-family: sans-serif;
     font-size: 20px;
+    visibility: hidden;
 }
 input {
     background: #111;
@@ -321,6 +229,14 @@ input {
 </style></head><body onload="init()">
 <script>
 function init() {
+    let crate = window.location.search.substr(1);
+    let version = all[crate];
+    if (version != undefined) {
+        move_to(crate, version);
+        return;
+    }
+    document.getElementsByTagName("body")[0].style.visibility = "visible";
+
     document.getElementById("search").focus();
     document.getElementById("search").addEventListener("change", (event) => {
         let crate = event.target.value;
@@ -336,8 +252,8 @@ function init() {
     }
 }
 function move_to(crate, version) {
-    let base = window.location.origin + window.location.pathname;
-    window.location.href = base + "logs/" + crate + "/" + version + ".html"
+    let base = window.location.origin;
+    window.location.href = base + "/logs/" + crate + "/" + version
 }
 function decode_params() {
     var params = {};

@@ -9,26 +9,37 @@ on:
 name: CI
 
 jobs:
-  build_and_test:
+  style:
     runs-on: ubuntu-latest
-    name: Build and Test
+    name: Style Checks
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
 
-      - name: Build
-        run: cargo build
-
-      - name: Formatting
+      - name: Style
         run: |
           cargo fmt --check
           cargo clippy -- -Dclippy::all
 
+  test:
+    runs-on: ubuntu-latest
+    name: Test
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
       - name: Run
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
         run: |
-          cargo run -- --tool=miri --crates=10
-          cargo run -- --tool=asan --crates=10
-          cargo run --bin render
-          cargo run --bin uploader -- --help
+          cargo run -- sync --tool=miri --bucket=miri-bot-dev
+          cargo run -- run --tool=miri --crates=10 --bucket=miri-bot-dev
+          cargo run -- sync --tool=miri --bucket=miri-bot-dev
+          cargo run -- run --tool=asan --crates=10 --bucket=miri-bot-dev
+          cargo run -- sync --tool=asan --bucket=miri-bot-dev

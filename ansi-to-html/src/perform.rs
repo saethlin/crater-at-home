@@ -1,6 +1,6 @@
 use crate::ansi::{Color, C0};
 use crate::renderer::Renderer;
-use vte::{Params, Perform};
+use vte::{Params, ParamsIter, Perform};
 
 impl Perform for Renderer {
     fn print(&mut self, c: char) {
@@ -21,7 +21,7 @@ impl Perform for Renderer {
             //C0::SI => self.set_active_charset(CharsetIndex::G0),
             //C0::SO => self.set_active_charset(CharsetIndex::G1),
             _ => {
-                println!("Unhandled execute byte={:02x}", byte)
+                log::warn!("Unhandled execute byte={:02x}", byte)
             }
         }
     }
@@ -34,7 +34,8 @@ impl Perform for Renderer {
         action: char,
     ) {
         if action == 'm' {
-            for p in params.iter() {
+            let mut it = params.iter();
+            while let Some(p) = it.next() {
                 match p {
                     &[0] => {
                         self.bold = false;
@@ -48,6 +49,9 @@ impl Perform for Renderer {
                     &[2] => self.dim = true,
                     &[3] => self.italic = true,
                     &[4] => self.underline = true,
+                    &[5] => {
+                        // Slow blink (we don't blink)
+                    }
                     &[7] => {
                         // Reverse video or invert. Inconsistent emulation.
                     }
@@ -55,6 +59,13 @@ impl Perform for Renderer {
                         self.bold = false;
                         self.dim = false;
                         // Set intensity to normal
+                    }
+                    &[23] => {
+                        self.italic = false;
+                        // Neither italic nor blackletter(?)
+                    }
+                    &[25] => {
+                        // Turn blinking off (we don't blink)
                     }
                     &[30] => self.foreground = Color::black(),
                     &[31] => self.foreground = Color::red(),
@@ -66,25 +77,11 @@ impl Perform for Renderer {
                     &[37] => self.foreground = Color::white(),
                     // 8-bit foreground color
                     &[38] => {
-                        if let Some([38, 5, code]) = params.get::<3>() {
-                            if let Some(color) = Color::parse_8bit(code) {
-                                self.foreground = color;
-                            }
-                        } else if let Some([38, 5, fg_code, 48, 5, bg_code]) = params.get::<6>() {
-                            if let Some(color) = Color::parse_8bit(fg_code) {
-                                self.foreground = color;
-                            }
-                            if let Some(color) = Color::parse_8bit(bg_code) {
-                                self.background = color;
-                            }
-                        } else if let Some([38, 2, r, g, b]) = params.get::<5>() {
-                            if let Some(color) = Color::parse_rgb(r, g, b) {
-                                self.foreground = color;
-                            }
+                        if let Some(color) = parse_color(&mut it) {
+                            self.foreground = color;
                         } else {
-                            println!("Unhandled m: {:?}", params);
+                            log::warn!("Unhandled m 48: {:?}", params);
                         }
-                        break;
                     }
                     &[39] => self.foreground = Color::bright_white(), // Default foreground color
                     &[40] => self.background = Color::black(),
@@ -96,25 +93,11 @@ impl Perform for Renderer {
                     &[46] => self.background = Color::cyan(),
                     &[47] => self.background = Color::white(),
                     &[48] => {
-                        if let Some([48, 5, code]) = params.get::<3>() {
-                            if let Some(color) = Color::parse_8bit(code) {
-                                self.background = color;
-                            }
-                        } else if let Some([48, 5, bg_code, 38, 5, fg_code]) = params.get::<6>() {
-                            if let Some(color) = Color::parse_8bit(fg_code) {
-                                self.foreground = color;
-                            }
-                            if let Some(color) = Color::parse_8bit(bg_code) {
-                                self.background = color;
-                            }
-                        } else if let Some([48, 2, r, g, b]) = params.get::<5>() {
-                            if let Some(color) = Color::parse_rgb(r, g, b) {
-                                self.background = color;
-                            }
+                        if let Some(color) = parse_color(&mut it) {
+                            self.background = color;
                         } else {
-                            println!("Unhandled m: {:?}", params);
+                            log::warn!("Unhandled m 48: {:?}", params);
                         }
-                        break;
                     }
                     &[49] => self.background = Color::black(), // Default foreground color
                     &[90] => self.foreground = Color::bright_black(),
@@ -125,16 +108,26 @@ impl Perform for Renderer {
                     &[95] => self.foreground = Color::bright_magenta(),
                     &[96] => self.foreground = Color::bright_cyan(),
                     &[97] => self.foreground = Color::bright_white(),
+
+                    &[100] => self.background = Color::bright_black(),
+                    &[101] => self.background = Color::bright_red(),
+                    &[102] => self.background = Color::bright_green(),
+                    &[103] => self.background = Color::bright_yellow(),
+                    &[104] => self.background = Color::bright_blue(),
+                    &[105] => self.background = Color::bright_magenta(),
+                    &[106] => self.background = Color::bright_cyan(),
+                    &[107] => self.background = Color::bright_white(),
+
                     _ => {
-                        println!("Unhandled m: {:?}", params)
+                        log::warn!("Unhandled m with unknown start: {:?}", params)
                     }
                 }
             }
         } else if action == 'H' {
             let mut it = params.iter();
-            if let (Some(&[row]), Some(&[col])) = (it.next(), it.next()) {
-                self.handle_move(row, col);
-            }
+            let row = if let Some(&[row]) = it.next() { row } else { 1 };
+            let col = if let Some(&[col]) = it.next() { col } else { 1 };
+            self.handle_move(row, col);
         } else if action == 'A' {
             if let Some(&[cells]) = params.iter().next() {
                 self.move_up_by(cells);
@@ -157,9 +150,30 @@ impl Perform for Renderer {
             self.erase_in_line(params.get::<1>().map(|a| a[0]));
         } else if action == 'h' || action == 'l' {
             // show/hide the cursor. Nothing for us to do.
+        } else if action == 'F' {
+            self.move_up_by(params.get::<1>().map(|a| a[0]).unwrap_or(1));
+            self.set_column(1);
+        } else if action == 'G' {
+            self.set_column(params.get::<1>().map(|a| a[0]).unwrap_or(1));
         } else {
-            println!("Unhandled dispatch {} {:?}", action, params);
+            log::warn!("Unhandled dispatch {} {:?}", action, params);
         }
+    }
+}
+
+fn parse_color(it: &mut ParamsIter) -> Option<Color> {
+    match it.next() {
+        Some(&[5]) => {
+            let code = it.next()?;
+            Color::parse_8bit(code[0])
+        }
+        Some(&[2]) => {
+            let r = it.next()?;
+            let g = it.next()?;
+            let b = it.next()?;
+            Color::parse_rgb(r[0], g[0], b[0])
+        }
+        _ => None,
     }
 }
 
