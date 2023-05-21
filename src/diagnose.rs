@@ -97,7 +97,7 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
                     None
                 }
             })
-            .unwrap_or(l+1);
+            .unwrap_or(l + 1);
 
         let kind;
         if line.contains("Data race detected") {

@@ -1,7 +1,7 @@
 use crate::{client::Client, db_dump, render, Crate, Tool};
 use clap::Parser;
 use color_eyre::{Report, Result};
-use std::{fmt::Write, sync::Arc, collections::HashMap};
+use std::{collections::HashMap, fmt::Write, sync::Arc};
 use tokio::{sync::Semaphore, task::JoinSet};
 
 #[derive(Parser)]
@@ -34,7 +34,10 @@ pub async fn run(args: Args) -> Result<()> {
 
     log::info!("Updating the cached crates.io database dump");
     let crates = db_dump::download()?;
-    let name_to_downloads: HashMap<_, _> = crates.iter().map(|c| (c.name.clone(), c.recent_downloads)).collect();
+    let name_to_downloads: HashMap<_, _> = crates
+        .iter()
+        .map(|c| (c.name.clone(), c.recent_downloads))
+        .collect();
     let mut output = Vec::new();
     for krate in crates.iter().cloned() {
         output.push((krate.name, krate.version));
