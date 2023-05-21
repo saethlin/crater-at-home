@@ -61,6 +61,7 @@ impl Row {
         self.position = position;
     }
 
+    // FIXME: This misbehaves if the position is off in space
     fn print(&mut self, cell: Cell) {
         if let Some(current) = self.cells.get_mut(self.position) {
             *current = cell;
@@ -80,6 +81,20 @@ pub struct Cell {
     italic: bool,
     underline: bool,
     dim: bool,
+}
+
+impl Default for Cell {
+    fn default() -> Self {
+        Self {
+            text: ' ',
+            foreground: Color::bright_white(),
+            background: Color::black(),
+            bold: false,
+            italic: false,
+            underline: false,
+            dim: false,
+        }
+    }
 }
 
 impl Default for Renderer {
@@ -124,7 +139,7 @@ impl Renderer {
     }
 
     pub fn backspace(&mut self) {
-        println!("Backspace");
+        self.current_row().position = self.current_row().position.saturating_sub(1);
     }
 
     pub fn carriage_return(&mut self) {
@@ -139,35 +154,66 @@ impl Renderer {
     }
 
     pub fn erase_in_display(&mut self, mode: Option<u16>) {
-        println!("erase_in_display {:?}", mode);
+        // Ignore attempts to clear the whole screen
+        if mode == Some(2) {
+            return;
+        }
+        // println!("erase_in_display {:?}", mode);
     }
 
     pub fn erase_in_line(&mut self, mode: Option<u16>) {
-        if mode == Some(2) {
-            self.current_row().erase();
-        } else {
-            println!("erase_in_line {:?}", mode);
+        let row = self.current_row();
+        match mode.unwrap_or(0) {
+            0 => {
+                row.cells.truncate(row.position + 1);
+            }
+            1 => {
+                for cell in &mut row.cells[..row.position] {
+                    *cell = Cell::default();
+                }
+            }
+            2 => {
+                self.current_row().erase();
+            }
+            _ => {}
         }
     }
 
     pub fn handle_move(&mut self, row: u16, col: u16) {
-        println!("move {} {}", row, col);
+        self.current_row = row as usize;
+        while self.current_row >= self.rows.len() {
+            self.rows.push(Row::new());
+        }
+        self.set_column(col);
     }
 
     pub fn move_up_by(&mut self, cells: u16) {
-        println!("up {}", cells);
+        self.current_row = self.current_row.saturating_sub(cells as usize);
     }
 
     pub fn move_down_by(&mut self, cells: u16) {
-        println!("down {}", cells);
+        self.current_row += cells as usize;
+        while self.current_row >= self.rows.len() {
+            self.rows.push(Row::new());
+        }
     }
 
     pub fn move_right_by(&mut self, cells: u16) {
-        println!("right {}", cells);
+        let pos = (self.current_row().position as u16).saturating_add(cells);
+        self.set_column(pos);
     }
 
     pub fn move_left_by(&mut self, cells: u16) {
-        println!("left {}", cells);
+        self.current_row().position = self.current_row().position.saturating_sub(cells as usize);
+    }
+
+    pub fn set_column(&mut self, cells: u16) {
+        let row = self.current_row();
+        row.position = cells.saturating_sub(1) as usize;
+        while row.cells.len() < row.position {
+            row.cells.push(Cell::default());
+        }
+        let _ = &row.cells[..row.position];
     }
 
     pub fn emit_html(&mut self, html: &mut String) {
