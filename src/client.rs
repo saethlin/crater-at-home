@@ -1,4 +1,5 @@
 use crate::{Crate, Status, Tool, Version};
+use aws_sdk_s3::client::fluent_builders::PutObject;
 use color_eyre::Result;
 use futures_util::StreamExt;
 
@@ -18,6 +19,10 @@ impl Client {
             bucket: bucket.to_string(),
             tool,
         })
+    }
+
+    pub fn put_object(&self) -> PutObject {
+        self.inner.put_object().bucket(&self.bucket)
     }
 
     pub async fn upload_raw(&self, krate: &Crate, data: Vec<u8>) -> Result<()> {
