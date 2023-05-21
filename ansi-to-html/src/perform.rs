@@ -78,7 +78,7 @@ impl Perform for Renderer {
                     // 8-bit foreground color
                     &[38] => {
                         if let Some(color) = parse_color(&mut it) {
-                            self.background = color;
+                            self.foreground = color;
                         } else {
                             log::warn!("Unhandled m 48: {:?}", params);
                         }
