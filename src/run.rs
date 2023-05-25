@@ -191,6 +191,8 @@ fn spawn_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::Child 
 }
 
 fn spawn_asan_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::Child {
+    let rust_flags = "-Zsanitizer=address -Zrandomize-layout --cap-lints allow \
+                      -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir";
     tokio::process::Command::new("docker")
         .args([
             "run",
@@ -203,10 +205,10 @@ fn spawn_asan_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::C
             "--tmpfs=/root/build:exec",
             "--tmpfs=/root/.cache",
             "--tmpfs=/tmp:exec",
-             "--env",
-            "RUSTFLAGS=-Zrandomize-layout --cap-lints allow -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir",
             "--env",
-            "RUSTDOCFLAGS=-Zrandomize-layout --cap-lints allow -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir",
+            &format!("RUSTFLAGS={rust_flags}"),
+            "--env",
+            &format!("RUSTDOCFLAGS={rust_flags}"),
             "--env",
             "CARGO_INCREMENTAL=0",
             "--env",
@@ -229,6 +231,8 @@ fn spawn_asan_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::C
 fn spawn_miri_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::Child {
     let miri_flags = "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks \
                      -Zmiri-panic-on-unsupported";
+    let rust_flags = "-Zrandomize-layout --cap-lints allow \
+                      -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir";
 
     tokio::process::Command::new("docker")
         .args([
@@ -243,9 +247,9 @@ fn spawn_miri_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::C
             "--tmpfs=/root/.cache",
             "--tmpfs=/tmp:exec",
             "--env",
-            "RUSTFLAGS=-Zrandomize-layout --cap-lints allow -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir",
+            &format!("RUSTFLAGS={rust_flags}"),
             "--env",
-            "RUSTDOCFLAGS=-Zrandomize-layout --cap-lints allow -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir",
+            &format!("RUSTDOCFLAGS={rust_flags}"),
             "--env",
             "CARGO_INCREMENTAL=0",
             "--env",
