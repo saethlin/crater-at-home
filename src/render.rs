@@ -184,7 +184,7 @@ pre {
     -moz-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
 }
-</style><title>Miri build logs</title></head><body><pre>
+</style></head><body><pre>
 Click on a crate to the right to display its build log
 </pre></body></html>
 </object>
@@ -198,7 +198,6 @@ pub fn render_ub(crates: &[Crate]) -> Result<String> {
     for c in crates {
         if let Status::UB { cause: causes, .. } = &c.status {
             write!(output, "<div class=\"row\">{} {}<br>", c.name, c.version,)?;
-            write!(output, "UB: ")?;
             for cause in causes {
                 write!(output, "{}", cause.kind)?;
                 if let Some(source_crate) = &cause.source_crate {
@@ -270,7 +269,6 @@ function decode_params() {
     return params;
 }
 </script>
-<title>Miri build logs</title>
 <p>Hello! This website hosts a library of logs, displayed as if you have just run <span style="font-family:monospace; font-size: 19px; background-color:#333;">cargo miri test</span> on every published crate on crates.io.
 <p>Try searching for a crate below, if one is found you will be redirected to the build output for its most recently published version. For crates where Miri detects UB, the page will be automatically scrolled to the first UB report.
 <div style="text-align: center">

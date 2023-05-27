@@ -192,7 +192,7 @@ fn spawn_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::Child 
 
 fn spawn_asan_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::Child {
     let rust_flags = "-Zsanitizer=address -Zrandomize-layout --cap-lints allow \
-                      -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir";
+                      -Copt-level=0 -Cdebuginfo=1 -Zvalidate-mir";
     tokio::process::Command::new("docker")
         .args([
             "run",

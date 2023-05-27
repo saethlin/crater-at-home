@@ -23,7 +23,7 @@ pub async fn run(args: Args) -> Result<()> {
     log::info!("Uploading the error page");
     client
         .put_object()
-        .key("403")
+        .key(format!("{}/403", args.tool))
         .body(ERROR_PAGE.as_bytes().to_vec().into())
         .content_type("text/html")
         .send()
@@ -62,7 +62,7 @@ pub async fn run(args: Args) -> Result<()> {
     let ub_page = crate::render::render_ub(&crates)?;
     client
         .put_object()
-        .key("miri/ub")
+        .key(format!("{}/ub", args.tool))
         .body(ub_page.into_bytes().into())
         .content_type("text/html")
         .send()

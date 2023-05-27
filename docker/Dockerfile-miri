@@ -5,8 +5,7 @@ ENV PATH=/root/.cargo/bin:$PATH
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     sh -s -- --default-toolchain=nightly --component=miri --component=rust-src --profile=minimal -y && \
     cargo install --git https://github.com/saethlin/miri-tools cargo-download && \
-    cargo install rustup-toolchain-install-master cargo-nextest && \
-    rustup component add miri
+    cargo install cargo-nextest
 
 RUN apt-get update && \
     apt-get install -y clang lld expect && \
