@@ -2,6 +2,7 @@ use crate::ansi::Color;
 use std::collections::HashMap;
 
 pub struct Renderer {
+    pub name: String,
     pub bold: bool,
     pub italic: bool,
     pub underline: bool,
@@ -97,9 +98,10 @@ impl Default for Cell {
     }
 }
 
-impl Default for Renderer {
-    fn default() -> Self {
+impl Renderer {
+    pub fn new(name: String) -> Self {
         Self {
+            name,
             bold: false,
             italic: false,
             underline: false,
@@ -111,9 +113,7 @@ impl Default for Renderer {
             styles: Styles::default(),
         }
     }
-}
 
-impl Renderer {
     pub fn print(&mut self, c: char) {
         let cell = Cell {
             text: c,

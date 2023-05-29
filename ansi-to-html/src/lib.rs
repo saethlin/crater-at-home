@@ -4,8 +4,8 @@ mod renderer;
 
 use renderer::Renderer;
 
-pub fn convert_escaped(ansi: &str) -> (String, String) {
-    let mut renderer = Renderer::default();
+pub fn convert_escaped(name: String, ansi: &str) -> (String, String) {
+    let mut renderer = Renderer::new(name.clone());
     let mut parser = vte::Parser::new();
     for byte in ansi.as_bytes() {
         parser.advance(&mut renderer, *byte);
