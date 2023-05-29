@@ -210,6 +210,8 @@ fn spawn_asan_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::C
             "--env",
             &format!("RUSTDOCFLAGS={rust_flags}"),
             "--env",
+            "ASAN_OPTIONS=detect_stack_use_after_return=true:allocator_may_return_null=1:detect_invalid_pointer_pairs=2",
+            "--env",
             "CARGO_INCREMENTAL=0",
             "--env",
             "RUST_BACKTRACE=1",
