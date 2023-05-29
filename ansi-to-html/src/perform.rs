@@ -21,7 +21,7 @@ impl Perform for Renderer {
             //C0::SI => self.set_active_charset(CharsetIndex::G0),
             //C0::SO => self.set_active_charset(CharsetIndex::G1),
             _ => {
-                log::warn!("Unhandled execute byte={:02x}", byte)
+                log::warn!("Unhandled execute byte={:02x} in {:?}", byte, self.name)
             }
         }
     }
@@ -80,7 +80,7 @@ impl Perform for Renderer {
                         if let Some(color) = parse_color(&mut it) {
                             self.foreground = color;
                         } else {
-                            log::warn!("Unhandled m 48: {:?}", params);
+                            log::warn!("Unhandled m 48: {:?} in {:?}", params, self.name);
                         }
                     }
                     &[39] => self.foreground = Color::bright_white(), // Default foreground color
@@ -96,7 +96,7 @@ impl Perform for Renderer {
                         if let Some(color) = parse_color(&mut it) {
                             self.background = color;
                         } else {
-                            log::warn!("Unhandled m 48: {:?}", params);
+                            log::warn!("Unhandled m 48: {:?} in {:?}", params, self.name);
                         }
                     }
                     &[49] => self.background = Color::black(), // Default foreground color
@@ -119,7 +119,7 @@ impl Perform for Renderer {
                     &[107] => self.background = Color::bright_white(),
 
                     _ => {
-                        log::warn!("Unhandled m with unknown start: {:?}", params)
+                        log::warn!("Unhandled m with unknown start: {:?} in {:?}", params, self.name)
                     }
                 }
             }
@@ -156,7 +156,7 @@ impl Perform for Renderer {
         } else if action == 'G' {
             self.set_column(params.get::<1>().map(|a| a[0]).unwrap_or(1));
         } else {
-            log::warn!("Unhandled dispatch {} {:?}", action, params);
+            log::warn!("Unhandled dispatch {} {:?} in {:?}", action, params, self.name);
         }
     }
 }
