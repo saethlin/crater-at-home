@@ -39,7 +39,8 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
         run: |
           cargo run -- sync --tool=miri --bucket=miri-bot-dev
-          cargo run -- run --tool=miri --crates=10 --bucket=miri-bot-dev
-          cargo run -- sync --tool=miri --bucket=miri-bot-dev
-          cargo run -- run --tool=asan --crates=10 --bucket=miri-bot-dev
+          cargo run -- run --tool=miri --bucket=miri-bot-dev --crate-list=ci-crates
           cargo run -- sync --tool=asan --bucket=miri-bot-dev
+          cargo run -- run --tool=asan --bucket=miri-bot-dev --crate-list=ci-crates
+          cargo run -- sync --tool=build --bucket=miri-bot-dev
+          cargo run -- run --tool=build --bucket=miri-bot-dev --crate-list=ci-crates

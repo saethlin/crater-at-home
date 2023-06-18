@@ -43,6 +43,7 @@ fn main() -> Result<()> {
 pub enum Tool {
     Miri,
     Asan,
+    Build,
 }
 
 impl Tool {
@@ -50,6 +51,7 @@ impl Tool {
         match self {
             Tool::Miri => "miri/raw",
             Tool::Asan => "asan/raw",
+            Tool::Build => "build/raw",
         }
     }
 
@@ -61,6 +63,7 @@ impl Tool {
         match self {
             Tool::Miri => "miri/logs",
             Tool::Asan => "asan/logs",
+            Tool::Build => "build/logs",
         }
     }
 
@@ -72,6 +75,7 @@ impl Tool {
         match self {
             Tool::Miri => "miri/index.html",
             Tool::Asan => "asan/index.html",
+            Tool::Build => "build/index.html",
         }
     }
 }
@@ -81,6 +85,7 @@ impl fmt::Display for Tool {
         let s = match self {
             Tool::Miri => "miri",
             Tool::Asan => "asan",
+            Tool::Build => "build",
         };
         f.write_str(s)
     }
@@ -93,6 +98,7 @@ impl FromStr for Tool {
         match s {
             "miri" => Ok(Self::Miri),
             "asan" => Ok(Self::Asan),
+            "build" => Ok(Self::Build),
             _ => Err(format!("Invalid tool {}", s)),
         }
     }
