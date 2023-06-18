@@ -14,7 +14,7 @@ use tokio::{
 };
 use uuid::Uuid;
 
-static TEST_END_DELIMITER: Lazy<Uuid> = Lazy::new(|| Uuid::new_v4());
+static TEST_END_DELIMITER: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 
 #[derive(Parser, Clone)]
 pub struct Args {
@@ -116,12 +116,12 @@ pub async fn run(args: Args) -> Result<()> {
     let crates = Arc::new(Mutex::new(crates));
 
     let mut tasks = JoinSet::new();
-    for cpu in 0..args.jobs.unwrap_or_else(|| num_cpus::get()) {
+    for cpu in 0..args.jobs.unwrap_or_else(num_cpus::get) {
         let crates = crates.clone();
         let args = args.clone();
         let client = client.clone();
 
-        let test_end_delimiter_with_dashes = format!("-{}-", TEST_END_DELIMITER.to_string());
+        let test_end_delimiter_with_dashes = format!("-{}-", *TEST_END_DELIMITER);
 
         let mut child = spawn_worker(&args, cpu);
 
@@ -206,10 +206,7 @@ fn spawn_worker(args: &Args, cpu: usize) -> tokio::process::Child {
             "--tmpfs=/tmp:exec",
             // The default cargo registry location; we download dependences in the sandbox
             "--tmpfs=/root/.cargo/registry",
-            &format!(
-                "--env=TEST_END_DELIMITER={}",
-                TEST_END_DELIMITER.to_string()
-            ),
+            &format!("--env=TEST_END_DELIMITER={}", *TEST_END_DELIMITER),
             // Enforce the memory limit
             &format!("--memory={}g", args.memory_limit_gb),
             // Setting --memory-swap to the same value turns off swap
