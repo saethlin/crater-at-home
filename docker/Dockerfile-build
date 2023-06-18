@@ -1,27 +1,26 @@
 FROM ghcr.io/rust-lang/crates-build-env/linux
 
 ENV PATH=/root/.cargo/bin:$PATH
+ENV TOOLCHAIN=f2c6735504f9c1c0baa07ad5932d994d4c8be6db
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-    sh -s -- --default-toolchain=nightly --component=miri --component=rust-src --profile=minimal -y && \
+    sh -s -- --default-toolchain=stable --profile=minimal -y && \
+    cargo install rustup-toolchain-install-master && \
     cargo install --git https://github.com/saethlin/miri-tools cargo-download && \
-    cargo install cargo-nextest
+    rustup-toolchain-install-master $TOOLCHAIN
 
 RUN apt-get update && \
     apt-get install -y clang lld expect && \
     rm -rf /var/lib/apt/lists/*
 
-COPY config.toml nextest.toml /root/.cargo/
+COPY config.toml /root/.cargo/config.toml
 
 COPY get-args.py /root/
-COPY run-miri.sh /root/run.sh
+COPY run-build.sh /root/run.sh
 
-ENV RUSTFLAGS="--cap-lints=allow -Zrandomize-layout -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir"
+ENV RUSTFLAGS="--cap-lints=allow -Zmir-opt-level=2 -Zinline-mir -Copt-level=0 -Cdebuginfo=1 -Zvalidate-mir"
 ENV RUSTDOCFLAGS=$RUSTFLAGS
-ENV MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-panic-on-unsupported"
 ENV CARGO_INCREMENTAL=0
 ENV RUST_BACKTRACE=1
-
-RUN cargo +nightly miri setup
 
 ENTRYPOINT ["bash", "/root/run.sh"]

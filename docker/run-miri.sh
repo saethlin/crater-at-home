@@ -14,7 +14,8 @@ do
         ARGS=$(python3 /root/get-args.py $crate)
         cargo +nightly update &> /dev/null
         cargo +nightly miri test --no-run $ARGS &> /dev/null
-        timeout --kill-after=10 3600 unbuffer -p cargo +nightly miri nextest run --color=always --no-fail-fast --config-file=/root/.cargo/nextest.toml $ARGS
+        # rustdoc is already passed --color=always, so adding it to the global MIRIFLAGS is just an error
+        MIRIFLAGS="$MIRIFLAGS --color=always" timeout --kill-after=10 3600 unbuffer -p cargo +nightly miri nextest run --color=always --no-fail-fast --config-file=/root/.cargo/nextest.toml $ARGS
         timeout --kill-after=10 600 unbuffer -p cargo +nightly miri test --doc --no-fail-fast $ARGS
     fi
     echo "-${TEST_END_DELIMITER}-"

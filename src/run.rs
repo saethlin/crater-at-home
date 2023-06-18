@@ -189,108 +189,36 @@ pub async fn run(args: Args) -> Result<()> {
 }
 
 fn spawn_worker(args: &Args, cpu: usize) -> tokio::process::Child {
-    match args.tool {
-        Tool::Miri => spawn_miri_worker(args, cpu),
-        Tool::Asan => spawn_asan_worker(args, cpu),
-        Tool::Build => spawn_build_worker(args, cpu),
-    }
-}
-
-fn spawn_asan_worker(args: &Args, cpu: usize) -> tokio::process::Child {
-    let rustflags = "-Zsanitizer=address --cap-lints=allow -Zrandomize-layout \
-                      -Copt-level=0 -Cdebuginfo=1 -Zvalidate-mir";
-    let asan_options = "detect_stack_use_after_return=true:allocator_may_return_null=1:detect_invalid_pointer_pairs=2";
-    Worker {
-        args,
-        cpu,
-        rustflags,
-        miriflags: "",
-        asan_options,
-    }
-    .spawn()
-}
-
-fn spawn_miri_worker(args: &Args, cpu: usize) -> tokio::process::Child {
-    let miriflags = "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks \
-                     -Zmiri-panic-on-unsupported --color=always";
-    let rustflags = "--cap-lints=allow -Zrandomize-layout \
-                      -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir";
-    Worker {
-        args,
-        cpu,
-        rustflags,
-        miriflags,
-        asan_options: "",
-    }
-    .spawn()
-}
-
-fn spawn_build_worker(args: &Args, cpu: usize) -> tokio::process::Child {
-    let rustflags = "--cap-lints=allow -Zmir-opt-level=2 -Zinline-mir -Copt-level=0 -Cdebuginfo=1 -Zvalidate-mir";
-    Worker {
-        args,
-        cpu,
-        rustflags,
-        miriflags: "",
-        asan_options: "",
-    }
-    .spawn()
-}
-
-struct Worker<'a> {
-    args: &'a Args,
-    cpu: usize,
-    rustflags: &'static str,
-    miriflags: &'static str,
-    asan_options: &'static str,
-}
-
-impl<'a> Worker<'a> {
-    fn spawn(self) -> tokio::process::Child {
-        let Worker {
-            args,
-            cpu,
-            rustflags,
-            miriflags,
-            asan_options,
-        } = self;
-        tokio::process::Command::new("docker")
-            .args([
-                "run",
-                "--rm",
-                "--interactive",
-                // Pin the build to a single CPU; this also ensures that anything doing
-                // make -j $(nproc)
-                // will not spawn processes appropriate for the host.
-                &format!("--cpuset-cpus={cpu}"),
-                // We set up our filesystem as read-only, but with 3 exceptions
-                "--read-only",
-                // The directory we are building in (not just its target dir!) is all writable
-                "--tmpfs=/root/build:exec",
-                // rustdoc tries to write to and executes files in /tmp, odd move but whatever
-                "--tmpfs=/tmp:exec",
-                // The default cargo registry location; we download dependences in the sandbox
-                "--tmpfs=/root/.cargo/registry",
-                &format!("--env=RUSTFLAGS={rustflags}"),
-                &format!("--env=RUSTDOCFLAGS={rustflags}"),
-                &format!("--env=MIRIFLAGS={miriflags}"),
-                &format!("--env=ASAN_OPTIONS={asan_options}"),
-                "--env=CARGO_INCREMENTAL=0",
-                "--env=RUST_BACKTRACE=1",
-                &format!(
-                    "--env=TEST_END_DELIMITER={}",
-                    TEST_END_DELIMITER.to_string()
-                ),
-                // Enforce the memory limit
-                &format!("--memory={}g", self.args.memory_limit_gb),
-                // Setting --memory-swap to the same value turns off swap
-                &format!("--memory-swap={}g", args.memory_limit_gb),
-                &format!("{}:latest", args.docker_tag()),
-            ])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap()
-    }
+    tokio::process::Command::new("docker")
+        .args([
+            "run",
+            "--rm",
+            "--interactive",
+            // Pin the build to a single CPU; this also ensures that anything doing
+            // make -j $(nproc)
+            // will not spawn processes appropriate for the host.
+            &format!("--cpuset-cpus={cpu}"),
+            // We set up our filesystem as read-only, but with 3 exceptions
+            "--read-only",
+            // The directory we are building in (not just its target dir!) is all writable
+            "--tmpfs=/root/build:exec",
+            // rustdoc tries to write to and executes files in /tmp, odd move but whatever
+            "--tmpfs=/tmp:exec",
+            // The default cargo registry location; we download dependences in the sandbox
+            "--tmpfs=/root/.cargo/registry",
+            &format!(
+                "--env=TEST_END_DELIMITER={}",
+                TEST_END_DELIMITER.to_string()
+            ),
+            // Enforce the memory limit
+            &format!("--memory={}g", args.memory_limit_gb),
+            // Setting --memory-swap to the same value turns off swap
+            &format!("--memory-swap={}g", args.memory_limit_gb),
+            &format!("{}:latest", args.docker_tag()),
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap()
 }
