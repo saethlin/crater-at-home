@@ -1,6 +1,7 @@
 use crate::{client::Client, render, Crate, Tool, Version};
 use clap::Parser;
 use color_eyre::eyre::Result;
+use once_cell::sync::Lazy;
 use std::{
     collections::HashMap,
     fs,
@@ -11,6 +12,9 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     task::JoinSet,
 };
+use uuid::Uuid;
+
+static TEST_END_DELIMITER: Lazy<Uuid> = Lazy::new(|| Uuid::new_v4());
 
 #[derive(Parser, Clone)]
 pub struct Args {
@@ -33,6 +37,9 @@ pub struct Args {
 
     #[clap(long)]
     pub bucket: String,
+
+    #[clap(long)]
+    jobs: Option<usize>,
 }
 
 impl Args {
@@ -108,18 +115,15 @@ pub async fn run(args: Args) -> Result<()> {
     let crates = crates.into_iter().rev().collect::<Vec<_>>();
     let crates = Arc::new(Mutex::new(crates));
 
-    let test_end_delimiter = uuid::Uuid::new_v4().to_string();
-
     let mut tasks = JoinSet::new();
-    for _ in 0..num_cpus::get() {
+    for cpu in 0..args.jobs.unwrap_or_else(|| num_cpus::get()) {
         let crates = crates.clone();
         let args = args.clone();
         let client = client.clone();
-        let test_end_delimiter = test_end_delimiter.clone();
 
-        let test_end_delimiter_with_dashes = format!("-{}-", test_end_delimiter);
+        let test_end_delimiter_with_dashes = format!("-{}-", TEST_END_DELIMITER.to_string());
 
-        let mut child = spawn_worker(&args, &test_end_delimiter);
+        let mut child = spawn_worker(&args, cpu);
 
         tasks.spawn(async move {
             loop {
@@ -150,6 +154,7 @@ pub async fn run(args: Args) -> Result<()> {
                         break;
                     }
                 }
+                log::debug!("{:?}", output);
 
                 // Render HTML for the stderr/stdout we captured
                 let rendered = render::render_crate(&krate, &output);
@@ -168,7 +173,7 @@ pub async fn run(args: Args) -> Result<()> {
 
                 if let Ok(Some(_)) = child.try_wait() {
                     log::warn!("A worker crashed! Standing up a new one...");
-                    child = spawn_worker(&args, &test_end_delimiter);
+                    child = spawn_worker(&args, cpu);
                 }
             }
         });
@@ -183,92 +188,102 @@ pub async fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-fn spawn_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::Child {
+fn spawn_worker(args: &Args, cpu: usize) -> tokio::process::Child {
     match args.tool {
-        Tool::Miri => spawn_miri_worker(args, test_end_delimiter),
-        Tool::Asan => spawn_asan_worker(args, test_end_delimiter),
+        Tool::Miri => spawn_miri_worker(args, cpu),
+        Tool::Asan => spawn_asan_worker(args, cpu),
+        Tool::Build => spawn_build_worker(args, cpu),
     }
 }
 
-fn spawn_asan_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::Child {
-    let rust_flags = "-Zsanitizer=address -Zrandomize-layout --cap-lints allow \
+fn spawn_asan_worker(args: &Args, cpu: usize) -> tokio::process::Child {
+    let rustflags = "-Zsanitizer=address --cap-lints=allow -Zrandomize-layout \
                       -Copt-level=0 -Cdebuginfo=1 -Zvalidate-mir";
-    tokio::process::Command::new("docker")
-        .args([
-            "run",
-            "--rm",
-            "--interactive",
-            "--cpus=1",       // Limit the build to one CPU
-            "--cpu-shares=2", // And reduce priority
-            // Create tmpfs mounts for all the locations we expect to be doing work in, so that
-            // we minimize actual disk I/O
-            "--tmpfs=/root/build:exec",
-            "--tmpfs=/root/.cache",
-            "--tmpfs=/tmp:exec",
-            "--env",
-            &format!("RUSTFLAGS={rust_flags}"),
-            "--env",
-            &format!("RUSTDOCFLAGS={rust_flags}"),
-            "--env",
-            "ASAN_OPTIONS=detect_stack_use_after_return=true:allocator_may_return_null=1:detect_invalid_pointer_pairs=2",
-            "--env",
-            "CARGO_INCREMENTAL=0",
-            "--env",
-            "RUST_BACKTRACE=1",
-            "--env",
-            &format!("TEST_END_DELIMITER={}", test_end_delimiter),
-            // Enforce the memory limit
-            &format!("--memory={}g", args.memory_limit_gb),
-            // Setting --memory-swap to the same value turns off swap
-            &format!("--memory-swap={}g", args.memory_limit_gb),
-            &format!("{}:latest", args.docker_tag()),
-        ])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap()
+    let asan_options = "detect_stack_use_after_return=true:allocator_may_return_null=1:detect_invalid_pointer_pairs=2";
+    Worker {
+        args,
+        cpu,
+        rustflags,
+        miriflags: "",
+        asan_options,
+    }
+    .spawn()
 }
 
-fn spawn_miri_worker(args: &Args, test_end_delimiter: &str) -> tokio::process::Child {
-    let miri_flags = "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks \
-                     -Zmiri-panic-on-unsupported";
-    let rust_flags = "-Zrandomize-layout --cap-lints allow \
+fn spawn_miri_worker(args: &Args, cpu: usize) -> tokio::process::Child {
+    let miriflags = "MIRIFLAGS=-Zmiri-disable-isolation -Zmiri-ignore-leaks \
+                     -Zmiri-panic-on-unsupported --color=always";
+    let rustflags = "--cap-lints=allow -Zrandomize-layout \
                       -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir";
+    Worker {
+        args,
+        cpu,
+        rustflags,
+        miriflags,
+        asan_options: "",
+    }
+    .spawn()
+}
 
-    tokio::process::Command::new("docker")
-        .args([
-            "run",
-            "--rm",
-            "--interactive",
-            "--cpus=1",       // Limit the build to one CPU
-            "--cpu-shares=2", // And reduce priority
-            // Create tmpfs mounts for all the locations we expect to be doing work in, so that
-            // we minimize actual disk I/O
-            "--tmpfs=/root/build:exec",
-            "--tmpfs=/root/.cache",
-            "--tmpfs=/tmp:exec",
-            "--env",
-            &format!("RUSTFLAGS={rust_flags}"),
-            "--env",
-            &format!("RUSTDOCFLAGS={rust_flags}"),
-            "--env",
-            "CARGO_INCREMENTAL=0",
-            "--env",
-            "RUST_BACKTRACE=0",
-            "--env",
-            miri_flags,
-            "--env",
-            &format!("TEST_END_DELIMITER={}", test_end_delimiter),
-            // Enforce the memory limit
-            &format!("--memory={}g", args.memory_limit_gb),
-            // Setting --memory-swap to the same value turns off swap
-            &format!("--memory-swap={}g", args.memory_limit_gb),
-            &format!("{}:latest", args.docker_tag()),
-        ])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap()
+fn spawn_build_worker(args: &Args, cpu: usize) -> tokio::process::Child {
+    let rustflags = "--cap-lints=allow -Zmir-opt-level=2 -Zinline-mir -Copt-level=0 -Cdebuginfo=1 -Zvalidate-mir";
+    Worker {
+        args,
+        cpu,
+        rustflags,
+        miriflags: "",
+        asan_options: "",
+    }
+    .spawn()
+}
+
+struct Worker<'a> {
+    args: &'a Args,
+    cpu: usize,
+    rustflags: &'static str,
+    miriflags: &'static str,
+    asan_options: &'static str,
+}
+
+impl<'a> Worker<'a> {
+    fn spawn(self) -> tokio::process::Child {
+        let Worker {
+            args,
+            cpu,
+            rustflags,
+            miriflags,
+            asan_options,
+        } = self;
+        tokio::process::Command::new("docker")
+            .args([
+                "run",
+                "--rm",
+                "--interactive",
+                &format!("--cpuset-cpus={cpu}"),
+                "--read-only",
+                "--tmpfs=/root/build:exec",
+                "--tmpfs=/tmp:exec",
+                "--tmpfs=/root/.cargo/registry",
+                &format!("--env=RUSTFLAGS={rustflags}"),
+                &format!("--env=RUSTDOCFLAGS={rustflags}"),
+                &format!("--env=MIRIFLAGS={miriflags}"),
+                &format!("--env=ASAN_OPTIONS={asan_options}"),
+                "--env=CARGO_INCREMENTAL=0",
+                "--env=RUST_BACKTRACE=1",
+                &format!(
+                    "--env=TEST_END_DELIMITER={}",
+                    TEST_END_DELIMITER.to_string()
+                ),
+                // Enforce the memory limit
+                &format!("--memory={}g", self.args.memory_limit_gb),
+                // Setting --memory-swap to the same value turns off swap
+                &format!("--memory-swap={}g", args.memory_limit_gb),
+                &format!("{}:latest", args.docker_tag()),
+            ])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap()
+    }
 }

@@ -9,9 +9,7 @@ do
     if cargo download $crate /root/build
     then
         ARGS=$(python3 /root/get-args.py $crate)
-        cargo +nightly update &> /dev/null
-        cargo +nightly test --no-run --target=x86_64-unknown-linux-gnu $ARGS &> /dev/null
-        timeout --kill-after=10 600 unbuffer -p cargo +nightly test --color=always --no-fail-fast --target=x86_64-unknown-linux-gnu $ARGS
+        cargo +$TOOLCHAIN test --no-run --target=x86_64-unknown-linux-gnu $ARGS
     fi
     echo "-${TEST_END_DELIMITER}-"
 done < /dev/stdin
