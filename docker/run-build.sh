@@ -5,7 +5,8 @@ export TERM=xterm-256color
 while read crate;
 do
     cd /root/build
-    find /root/build /tmp -mindepth 1 -delete # clean out anything from an old build (probably)
+    # Delete everything in our writable mount points
+    find /root/build /tmp /root/.cargo/registry -mindepth 1 -delete
     if cargo download $crate /root/build
     then
         ARGS=$(python3 /root/get-args.py $crate)

@@ -259,10 +259,17 @@ impl<'a> Worker<'a> {
                 "run",
                 "--rm",
                 "--interactive",
+                // Pin the build to a single CPU; this also ensures that anything doing
+                // make -j $(nproc)
+                // will not spawn processes appropriate for the host.
                 &format!("--cpuset-cpus={cpu}"),
+                // We set up our filesystem as read-only, but with 3 exceptions
                 "--read-only",
+                // The directory we are building in (not just its target dir!) is all writable
                 "--tmpfs=/root/build:exec",
+                // rustdoc tries to write to and executes files in /tmp, odd move but whatever
                 "--tmpfs=/tmp:exec",
+                // The default cargo registry location; we download dependences in the sandbox
                 "--tmpfs=/root/.cargo/registry",
                 &format!("--env=RUSTFLAGS={rustflags}"),
                 &format!("--env=RUSTDOCFLAGS={rustflags}"),
