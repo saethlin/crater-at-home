@@ -2,8 +2,6 @@ exec 2>&1
 
 export TERM=xterm-256color
 
-cargo +nightly miri setup &> /dev/null
-
 while read crate;
 do
     cd /root/build
