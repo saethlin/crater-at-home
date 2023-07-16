@@ -160,10 +160,16 @@ pub async fn run(args: Args) -> Result<()> {
                 let rendered = render::render_crate(&krate, &output);
 
                 // Upload both
-                client
-                    .upload_raw(&krate, output.into_bytes())
-                    .await
-                    .unwrap();
+                let mut res = client.upload_raw(&krate, output.clone().into_bytes()).await;
+                for _ in 0..8 {
+                    if res.is_ok() {
+                        break;
+                    } else {
+                        log::warn!("Retrying error {:?}", res);
+                    }
+                    res = client.upload_raw(&krate, output.clone().into_bytes()).await;
+                }
+
                 client
                     .upload_html(&krate, rendered.into_bytes())
                     .await
@@ -189,33 +195,54 @@ pub async fn run(args: Args) -> Result<()> {
 }
 
 fn spawn_worker(args: &Args, cpu: usize) -> tokio::process::Child {
-    tokio::process::Command::new("docker")
-        .args([
-            "run",
-            "--rm",
-            "--interactive",
-            // Pin the build to a single CPU; this also ensures that anything doing
-            // make -j $(nproc)
-            // will not spawn processes appropriate for the host.
-            &format!("--cpuset-cpus={cpu}"),
-            // We set up our filesystem as read-only, but with 3 exceptions
-            "--read-only",
-            // The directory we are building in (not just its target dir!) is all writable
-            "--tmpfs=/root/build:exec",
-            // rustdoc tries to write to and executes files in /tmp, odd move but whatever
-            "--tmpfs=/tmp:exec",
-            // The default cargo registry location; we download dependences in the sandbox
-            "--tmpfs=/root/.cargo/registry",
-            &format!("--env=TEST_END_DELIMITER={}", *TEST_END_DELIMITER),
-            // Enforce the memory limit
-            &format!("--memory={}g", args.memory_limit_gb),
-            // Setting --memory-swap to the same value turns off swap
-            &format!("--memory-swap={}g", args.memory_limit_gb),
-            &format!("{}:latest", args.docker_tag()),
-        ])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap()
+    let mut cmd = tokio::process::Command::new("docker");
+    cmd.args([
+        "run",
+        "--rm",
+        "--interactive",
+        // Pin the build to a single CPU; this also ensures that anything doing
+        // make -j $(nproc)
+        // will not spawn processes appropriate for the host.
+        &format!("--cpuset-cpus={cpu}"),
+        // We set up our filesystem as read-only, but with 3 exceptions
+        "--read-only",
+        // The directory we are building in (not just its target dir!) is all writable
+        "--tmpfs=/root/build:exec",
+        // rustdoc tries to write to and executes files in /tmp, odd move but whatever
+        "--tmpfs=/tmp:exec",
+        // The default cargo registry location; we download dependences in the sandbox
+        "--tmpfs=/root/.cargo/registry",
+        // AWS credentials for sccache
+        &format!(
+            "--volume={}/.aws:/root/.aws:ro",
+            dirs::home_dir().unwrap().display()
+        ),
+        &format!("--env=TEST_END_DELIMITER={}", *TEST_END_DELIMITER),
+        &format!("--env=SCCACHE_S3_KEY_PREFIX={}/sccache/", args.tool),
+        &format!("--env=SCCACHE_BUCKET={}", args.bucket),
+    ]);
+    // Pass through environment variables to enable sccache
+    for var in &[
+        "SCCACHE_REGION",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+    ] {
+        cmd.arg(&format!(
+            "--env={}={}",
+            var,
+            std::env::var(var).unwrap_or_default()
+        ));
+    }
+    cmd.args([
+        // Enforce the memory limit
+        &format!("--memory={}g", args.memory_limit_gb),
+        // Setting --memory-swap to the same value turns off swap
+        &format!("--memory-swap={}g", args.memory_limit_gb),
+        &format!("{}:latest", args.docker_tag()),
+    ])
+    .stdin(Stdio::piped())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()
+    .unwrap()
 }
