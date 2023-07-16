@@ -21,6 +21,10 @@ impl Client {
         })
     }
 
+    pub fn tool(&self) -> Tool {
+        self.tool
+    }
+
     pub fn put_object(&self) -> PutObject {
         self.inner.put_object().bucket(&self.bucket)
     }
