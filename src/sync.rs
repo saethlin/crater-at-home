@@ -2,7 +2,7 @@ use crate::{client::Client, db_dump, render, Crate, Tool};
 use clap::Parser;
 use color_eyre::{Report, Result};
 use std::{collections::HashMap, fmt::Write, sync::Arc};
-use tokio::{sync::Semaphore, task::JoinSet};
+use tokio::{sync::Mutex, sync::Semaphore, task::JoinSet};
 
 #[derive(Parser)]
 pub struct Args {
@@ -76,13 +76,49 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
     log::info!("Re-rendering HTML for {} crates", all.len());
     let mut tasks = JoinSet::new();
     let limit = Arc::new(Semaphore::new(256));
+    let all_raw = Arc::new(Mutex::new(tar::Builder::new(xz2::write::XzEncoder::new(
+        Vec::new(),
+        5,
+    ))));
+    let all_rendered = Arc::new(Mutex::new(tar::Builder::new(xz2::write::XzEncoder::new(
+        Vec::new(),
+        5,
+    ))));
     for krate in all {
         let limit = Arc::clone(&limit);
         let client = Arc::clone(&client);
+        let all_raw = Arc::clone(&all_raw);
+        let all_rendered = Arc::clone(&all_rendered);
         let permit = limit.acquire_owned().await.unwrap();
         tasks.spawn(async move {
             let raw = client.download_raw(&krate).await?;
+            let mut header = tar::Header::new_gnu();
+            header
+                .set_path(format!("raw/{}/{}", krate.name, krate.version))
+                .unwrap();
+            header.set_size(raw.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            all_raw
+                .lock()
+                .await
+                .append(&header, raw.as_bytes())
+                .unwrap();
+
             let rendered = render::render_crate(&krate, &raw);
+            let mut header = tar::Header::new_gnu();
+            header
+                .set_path(format!("html/{}/{}", krate.name, krate.version))
+                .unwrap();
+            header.set_size(rendered.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            all_rendered
+                .lock()
+                .await
+                .append(&header, rendered.as_bytes())
+                .unwrap();
+
             client.upload_html(&krate, rendered.into_bytes()).await?;
             // Ensure the permit is released once we are done with the client
             drop(permit);
@@ -96,6 +132,36 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
         let krate = task??;
         crates.push(krate);
     }
+
+    let raw: Vec<u8> = Arc::into_inner(all_raw)
+        .unwrap()
+        .into_inner()
+        .into_inner()
+        .unwrap()
+        .finish()
+        .unwrap();
+    client
+        .put_object()
+        .key(format!("{}/raw.tar.xz", client.tool()))
+        .body(raw.into())
+        .content_type("application/octet-stream")
+        .send()
+        .await?;
+
+    let rendered: Vec<u8> = Arc::into_inner(all_rendered)
+        .unwrap()
+        .into_inner()
+        .into_inner()
+        .unwrap()
+        .finish()
+        .unwrap();
+    client
+        .put_object()
+        .key(format!("{}/html.tar.xz", client.tool()))
+        .body(rendered.into())
+        .content_type("application/octet-stream")
+        .send()
+        .await?;
 
     Ok(crates)
 }
