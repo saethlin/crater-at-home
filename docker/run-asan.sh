@@ -2,6 +2,11 @@ exec 2>&1
 
 export TERM=xterm-256color
 
+# Use 1 GB for a default stack size.
+# We really want to only run out of stack in true infinite recursion.
+ulimit -s 1048576
+export RUST_MIN_STACK=1073741824
+
 while read crate;
 do
     cd /root/build
