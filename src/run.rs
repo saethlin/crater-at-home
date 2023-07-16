@@ -40,6 +40,9 @@ pub struct Args {
 
     #[clap(long)]
     jobs: Option<usize>,
+
+    #[clap(long)]
+    rev: bool,
 }
 
 impl Args {
@@ -111,8 +114,10 @@ pub async fn run(args: Args) -> Result<()> {
                 .any(|c| c.name == krate.name && c.version == krate.version)
     });
 
-    // We are going to pop crates from this, so we now need to invert the order
-    let crates = crates.into_iter().rev().collect::<Vec<_>>();
+    if !args.rev {
+        // We are going to pop crates from this, so we now need to invert the order
+        crates = crates.into_iter().rev().collect::<Vec<_>>();
+    }
     let crates = Arc::new(Mutex::new(crates));
 
     let mut tasks = JoinSet::new();
