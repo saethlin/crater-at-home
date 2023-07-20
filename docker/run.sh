@@ -33,13 +33,16 @@ function run_build {
     timed inapty cargo +$TOOLCHAIN test --no-run --target=$HOST $ARGS
 }
 
+function run_check {
+    inapty cargo +$TOOLCHAIN check --target=$HOST $ARGS
+}
+
 function run_asan {
     timed cargo +$TOOLCHAIN careful test -Zcareful-sanitizer=address --no-run --target=$HOST $ARGS &> /dev/null
     timed inapty cargo +$TOOLCHAIN careful test -Zcareful-sanitizer=address --color=always --no-fail-fast --target=$HOST $ARGS
 }
 
 function run_miri {
-    cargo +$TOOLCHAIN miri setup
     timed cargo +$TOOLCHAIN miri test --no-run $ARGS &> /dev/null
     # rustdoc is already passed --color=always, so adding it to the global MIRIFLAGS is just an error
     MIRIFLAGS="$MIRIFLAGS --color=always" timed inapty cargo +$TOOLCHAIN miri nextest run --color=always --no-fail-fast --config-file=/root/.cargo/nextest.toml $ARGS
@@ -52,14 +55,16 @@ fi
 
 while read crate;
 do
-    cd /root/build
+    cd /build
     # Delete everything in our writable mount points
-    find /root/build /tmp /root/.cargo/registry -mindepth 1 -delete
-    if cargo download $crate /root/build; then 
+    find /build /tmp /root/.cargo/registry -mindepth 1 -delete
+    if cargo download $crate /build; then
         ARGS=$(get-args $crate)
         cargo +$TOOLCHAIN update &> /dev/null
         if [[ $TOOL == "build" ]]; then
             run_build
+        elif [[ $TOOL == "check" ]]; then
+            run_check
         elif [[ $TOOL == "asan" ]]; then
             run_asan
         elif [[ $TOOL == "miri" ]]; then

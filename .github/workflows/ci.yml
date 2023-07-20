@@ -12,7 +12,7 @@ jobs:
   suite_matrix:
     strategy:
       matrix:
-        suite: [style, miri, asan, build]
+        suite: [style, miri, asan, build, check]
     runs-on: ubuntu-latest
     name: Test ${{ matrix.suite }}
     steps:

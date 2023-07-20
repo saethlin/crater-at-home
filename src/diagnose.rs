@@ -168,9 +168,9 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
         for line in &lines[l..] {
             if line.contains("inside `") && line.contains(" at ") {
                 let path = line.split(" at ").nth(1).unwrap();
-                if path.contains("/root/build") || !path.starts_with('/') {
+                if path.starts_with("/build") || !path.starts_with('/') {
                     break;
-                } else if path.contains("/root/.cargo/registry/src/") {
+                } else if path.contains(".cargo/registry/src/") {
                     let crate_name = path.split('/').nth(6).unwrap();
                     source_crate = Some(crate_name.to_string());
                     break;
