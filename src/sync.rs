@@ -93,31 +93,35 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
         tasks.spawn(async move {
             let raw = client.download_raw(&krate).await?;
             let mut header = tar::Header::new_gnu();
-            header
+            if header
                 .set_path(format!("raw/{}/{}", krate.name, krate.version))
-                .unwrap();
-            header.set_size(raw.len() as u64);
-            header.set_mode(0o644);
-            header.set_cksum();
-            all_raw
-                .lock()
-                .await
-                .append(&header, raw.as_bytes())
-                .unwrap();
+                .is_ok()
+            {
+                header.set_size(raw.len() as u64);
+                header.set_mode(0o644);
+                header.set_cksum();
+                all_raw
+                    .lock()
+                    .await
+                    .append(&header, raw.as_bytes())
+                    .unwrap();
+            }
 
             let rendered = render::render_crate(&krate, &raw);
             let mut header = tar::Header::new_gnu();
-            header
+            if header
                 .set_path(format!("html/{}/{}", krate.name, krate.version))
-                .unwrap();
-            header.set_size(rendered.len() as u64);
-            header.set_mode(0o644);
-            header.set_cksum();
-            all_rendered
-                .lock()
-                .await
-                .append(&header, rendered.as_bytes())
-                .unwrap();
+                .is_ok()
+            {
+                header.set_size(rendered.len() as u64);
+                header.set_mode(0o644);
+                header.set_cksum();
+                all_rendered
+                    .lock()
+                    .await
+                    .append(&header, rendered.as_bytes())
+                    .unwrap();
+            }
 
             client.upload_html(&krate, rendered.into_bytes()).await?;
             // Ensure the permit is released once we are done with the client
