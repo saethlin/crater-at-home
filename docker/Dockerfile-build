@@ -5,19 +5,12 @@ ENV TOOLCHAIN=nightly
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     sh -s -- --default-toolchain=nightly --profile=minimal -y && \
-    cargo install --git https://github.com/saethlin/miri-tools cargo-download && \
+    cargo install --git https://github.com/saethlin/miri-tools cargo-download inapty get-args && \
     cargo install sccache --features=s3
 
 # cargo install rustup-toolchain-install-master
 # rustup-toolchain-install-master $TOOLCHAIN
 
-RUN apt-get update && \
-    apt-get install -y clang lld expect && \
-    rm -rf /var/lib/apt/lists/*
-
-COPY config.toml /root/.cargo/config.toml
-
-COPY get-args.py /root/
 COPY run-build.sh /root/run.sh
 
 ENV RUSTFLAGS="--cap-lints=allow -Zmir-opt-level=4 -Zinline-mir -Copt-level=0 -Cdebuginfo=1 -Zvalidate-mir"

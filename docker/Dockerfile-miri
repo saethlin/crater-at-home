@@ -1,19 +1,15 @@
 FROM ghcr.io/rust-lang/crates-build-env/linux
 
 ENV PATH=/root/.cargo/bin:$PATH
+ENV TOOLCHAIN=nightly
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     sh -s -- --default-toolchain=nightly --component=miri --component=rust-src --profile=minimal -y && \
-    cargo install --git https://github.com/saethlin/miri-tools cargo-download && \
+    cargo install --git https://github.com/saethlin/miri-tools cargo-download inapty get-args && \
     cargo install cargo-nextest
 
-RUN apt-get update && \
-    apt-get install -y clang lld expect && \
-    rm -rf /var/lib/apt/lists/*
+COPY nextest.toml /root/.cargo/
 
-COPY config.toml nextest.toml /root/.cargo/
-
-COPY get-args.py /root/
 COPY run-miri.sh /root/run.sh
 
 ENV RUSTFLAGS="--cap-lints=allow -Zrandomize-layout -Copt-level=0 -Cdebuginfo=0 -Zvalidate-mir"

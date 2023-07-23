@@ -9,8 +9,9 @@ do
     find /root/build /tmp /root/.cargo/registry -mindepth 1 -delete
     if cargo download $crate /root/build
     then
-        ARGS=$(python3 /root/get-args.py $crate)
-        cargo +$TOOLCHAIN test --no-run --target=x86_64-unknown-linux-gnu $ARGS
+        ARGS=$(get-args $crate)
+        cargo +$TOOLCHAIN update &> /dev/null
+        inapty cargo +$TOOLCHAIN test --no-run --target=x86_64-unknown-linux-gnu $ARGS
     fi
     echo "-${TEST_END_DELIMITER}-"
 done < /dev/stdin
