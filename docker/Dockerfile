@@ -19,10 +19,4 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
 
 COPY run.sh /root/run.sh
 
-ENV RUSTFLAGS="-Zsanitizer=address --cap-lints=allow -Zrandomize-layout -Copt-level=0 -Cdebuginfo=1 -Zvalidate-mir"
-ENV RUSTDOCFLAGS=$RUSTFLAGS
-ENV ASAN_OPTIONS=detect_stack_use_after_return=true:allocator_may_return_null=1:detect_invalid_pointer_pairs=2
-ENV CARGO_INCREMENTAL=0
-ENV RUST_BACKTRACE=1
-
 ENTRYPOINT ["bash", "/root/run.sh"]
