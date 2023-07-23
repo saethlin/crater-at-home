@@ -14,10 +14,10 @@ do
     find /root/build /tmp /root/.cargo/registry -mindepth 1 -delete
     if cargo download $crate /root/build
     then
-        ARGS=$(python3 /root/get-args.py $crate)
+        ARGS=$(get-args $crate)
         cargo +nightly update &> /dev/null
         cargo +nightly test --no-run --target=x86_64-unknown-linux-gnu $ARGS &> /dev/null
-        timeout --kill-after=10 600 unbuffer -p cargo +nightly test --color=always --no-fail-fast --target=x86_64-unknown-linux-gnu $ARGS
+        timeout --kill-after=10 600 inapty cargo +nightly test --color=always --no-fail-fast --target=x86_64-unknown-linux-gnu $ARGS
     fi
     echo "-${TEST_END_DELIMITER}-"
 done < /dev/stdin
