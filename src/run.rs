@@ -216,7 +216,7 @@ fn spawn_worker(args: &Args, cpu: usize) -> tokio::process::Child {
         // rustdoc tries to write to and executes files in /tmp, odd move but whatever
         "--tmpfs=/tmp:exec",
         // The default cargo registry location; we download dependences in the sandbox
-        "--tmpfs=/root/.cargo/registry",
+        "--tmpfs=/root/.cargo/registry:exec",
         // AWS credentials for sccache
         &format!(
             "--volume={}/.aws:/root/.aws:ro",
