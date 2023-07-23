@@ -1,0 +1,21 @@
+[package]
+name = "get-args"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0.174", features = ["derive"] }
+serde_json = "1.0.103"
+
+[package.metadata.playground]
+features = ["feature"]
+no-default-features = true
+all-features = true
+
+[package.metadata.docs.rs]
+features = ["ouch"]
+
+[package.metadata."docs.rs"]
+features = ["ahhhh"]
