@@ -1,8 +1,8 @@
 [package]
-name = "miri-the-world"
+name = "crater-at-home"
 version = "0.1.0"
 edition = "2021"
-default-run = "miri-the-world"
+default-run = "crater-at-home"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }

@@ -4,15 +4,16 @@
 >
 > No, we have crater at home
 
-This is a tool for building or running tests for all crates published to crates.io.
-Unlike crater, it is not at all designed to look for regressions.
+This project exists because I tried to use [crater](https://github.com/rust-lang/crater) or [rustwide](https://crates.io/crates/rustwide) to run `cargo miri test` on all published crates, and I found it very challenging to add support for Miri, and generally very difficult to hack on those projects.
 
-This project exists because I tried to use `crater` or `rustwide` to run `cargo miri test` on all published crates, and I found those projects exceptionally difficult to hack on.
-To that end, the approach of this project is rather different.
-We do not try to do anything clever with caching, or with fine-grained sandboxing, and do not have runtime control of toolchains.
+## Intentional differences with Crater
+* Sandboxing restricts writes to anything below the crate root, not the target directory
+* Build/test commands are run attached to a pseudoterminal, output is uploaded raw and converted to HTML
+* Default resource limits per build are 1 CPU and 8 GB memory
+* All state is stored in S3, never on local disk
 
-The outcome seems to be significantly greater reliability than crater; we do not see any of the causes of spurious results (apart from crates with flaky test suites) that crater does, and our uploads do not occasionally crash.
-I do not understand exactly what causes this to be so much more reliable than crater; if you know better I'm game to send patches to crater.
+The outcome seems to be significantly greater reliability than crater: We do not see any of the causes of spurious results (apart from crates with flaky test suites) that crater does, and our uploads do not occasionally crash.
+I do not understand exactly what causes this to be so much more reliable than crater, but if someone can figure that out it would be great to improve crater.
 
 ## Architecture
 
@@ -21,8 +22,8 @@ The server is written in Rust and distributes work one job at a time, and upload
 The client is written in bash and runs inside a simple Docker container, which is just an Ubuntu image with a lot of packages installed, a Rust toolchain, and some utilities.
 The server `docker run`s a bunch of clients, then writes the names and versions of crates to their stdin, and reads build logs from their stdout.
 
-It would probably be possible to expand that communication to go over the network.
-I am not interested in making that happen, but if it can be done without blowing up the complexity of the project, such a contribution would be welcome.
+It is possible to expand the client-server communication to go over the network.
+I am not going to implement that, but if it can be done without blowing up the complexity of the project, such a contribution would be welcome.
 
 ## Sandboxing
 

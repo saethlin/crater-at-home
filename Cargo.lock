@@ -675,6 +675,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "crater-at-home"
+version = "0.1.0"
+dependencies = [
+ "ansi-to-html",
+ "aws-config",
+ "aws-sdk-s3",
+ "clap",
+ "color-eyre",
+ "csv",
+ "dirs",
+ "env_logger",
+ "flate2",
+ "futures-util",
+ "fxhash",
+ "log",
+ "num_cpus",
+ "once_cell",
+ "regex",
+ "semver",
+ "serde",
+ "serde_json",
+ "tar",
+ "tokio",
+ "ureq",
+ "uuid",
+ "xz2",
+]
+
+[[package]]
 name = "crc32c"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1227,35 +1256,6 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys",
-]
-
-[[package]]
-name = "miri-the-world"
-version = "0.1.0"
-dependencies = [
- "ansi-to-html",
- "aws-config",
- "aws-sdk-s3",
- "clap",
- "color-eyre",
- "csv",
- "dirs",
- "env_logger",
- "flate2",
- "futures-util",
- "fxhash",
- "log",
- "num_cpus",
- "once_cell",
- "regex",
- "semver",
- "serde",
- "serde_json",
- "tar",
- "tokio",
- "ureq",
- "uuid",
- "xz2",
 ]
 
 [[package]]
