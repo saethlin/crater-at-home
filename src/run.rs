@@ -45,16 +45,6 @@ pub struct Args {
     rev: bool,
 }
 
-impl Args {
-    fn docker_tag(&self) -> String {
-        format!("{}-the-world", self.tool)
-    }
-
-    fn dockerfile(&self) -> String {
-        format!("docker/Dockerfile-{}", self.tool)
-    }
-}
-
 async fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
     let all_crates = client.get_crate_list().await?;
     let crates = if let Some(crate_list) = &args.crate_list {
@@ -95,9 +85,9 @@ pub async fn run(args: Args) -> Result<()> {
         .args([
             "build",
             "-t",
-            &args.docker_tag(),
+            "crater-at-home",
             "-f",
-            &args.dockerfile(),
+            "docker/Dockerfile",
             "docker/",
         ])
         .status()?;
@@ -225,6 +215,7 @@ fn spawn_worker(args: &Args, cpu: usize) -> tokio::process::Child {
         &format!("--env=TEST_END_DELIMITER={}", *TEST_END_DELIMITER),
         &format!("--env=SCCACHE_S3_KEY_PREFIX={}/sccache/", args.tool),
         &format!("--env=SCCACHE_BUCKET={}", args.bucket),
+        &format!("--env=TOOL={}", args.tool),
     ]);
     // Pass through environment variables to enable sccache
     for var in &[
@@ -243,7 +234,7 @@ fn spawn_worker(args: &Args, cpu: usize) -> tokio::process::Child {
         &format!("--memory={}g", args.memory_limit_gb),
         // Setting --memory-swap to the same value turns off swap
         &format!("--memory-swap={}g", args.memory_limit_gb),
-        &format!("{}:latest", args.docker_tag()),
+        "crater-at-home:latest",
     ])
     .stdin(Stdio::piped())
     .stdout(Stdio::piped())
