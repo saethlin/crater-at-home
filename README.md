@@ -11,6 +11,7 @@ This project exists because I tried to use [crater](https://github.com/rust-lang
 * Build/test commands are run attached to a pseudoterminal, output is uploaded raw and converted to HTML
 * Default resource limits per build are 1 CPU and 8 GB memory
 * All state is stored in S3, never on local disk
+* No limits on the size of output from builds (some of the logs do get large, but this has not been a problem)
 
 The outcome seems to be significantly greater reliability than crater: We do not see any of the causes of spurious results (apart from crates with flaky test suites) that crater does, and our uploads do not occasionally crash.
 I do not understand exactly what causes this to be so much more reliable than crater, but if someone can figure that out it would be great to improve crater.
