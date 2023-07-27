@@ -44,6 +44,10 @@ function run_miri {
     timeout --kill-after=10 600 inapty cargo +$TOOLCHAIN miri test --doc --no-fail-fast $ARGS
 }
 
+if [[ $TOOL == "miri" ]]; then
+    cargo +$TOOLCHAIN miri setup &> /dev/null
+fi
+
 while read crate;
 do
     cd /root/build

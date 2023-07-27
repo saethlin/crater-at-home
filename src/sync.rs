@@ -53,11 +53,15 @@ pub async fn run(args: Args) -> Result<()> {
     let mut crates = sync_all_html(client.clone()).await?;
 
     // Sort crates by recent downloads, descending
-    crates.sort_by(|a, b| {
-        let a = name_to_downloads.get(&a.name).cloned().flatten();
-        let b = name_to_downloads.get(&b.name).cloned().flatten();
-        b.cmp(&a)
+    // Then by version, descending
+    crates.sort_by(|crate_a, crate_b| {
+        let a = name_to_downloads.get(&crate_a.name).cloned().flatten();
+        let b = name_to_downloads.get(&crate_b.name).cloned().flatten();
+        b.cmp(&a) //.then_with(|| crate_a.version.cmp(&crate_b.version))
     });
+    // Since we sored by version we can dedup by name and be left with only
+    // the most recent version of each crate.
+    crates.dedup_by(|a, b| a.name == b.name);
 
     let ub_page = crate::render::render_ub(&crates)?;
     client

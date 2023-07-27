@@ -17,6 +17,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     cargo install --git https://github.com/saethlin/miri-tools cargo-download inapty get-args && \
     cargo install cargo-nextest
 
+COPY nextest.toml /root/.cargo/nextest.toml
 COPY run.sh /root/run.sh
 
 ENTRYPOINT ["bash", "/root/run.sh"]
