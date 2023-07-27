@@ -155,16 +155,10 @@ pub async fn run(args: Args) -> Result<()> {
                 let rendered = render::render_crate(&krate, &output);
 
                 // Upload both
-                let mut res = client.upload_raw(&krate, output.clone().into_bytes()).await;
-                for _ in 0..8 {
-                    if res.is_ok() {
-                        break;
-                    } else {
-                        log::warn!("Retrying error {:?}", res);
-                    }
-                    res = client.upload_raw(&krate, output.clone().into_bytes()).await;
-                }
-
+                client
+                    .upload_raw(&krate, output.clone().into_bytes())
+                    .await
+                    .unwrap();
                 client
                     .upload_html(&krate, rendered.into_bytes())
                     .await
@@ -207,6 +201,8 @@ fn spawn_worker(args: &Args, cpu: usize) -> tokio::process::Child {
         "--tmpfs=/tmp:exec",
         // The default cargo registry location; we download dependences in the sandbox
         "--tmpfs=/root/.cargo/registry:exec",
+        // cargo-miri builds a sysroot under /root/.cache, so why not make it all writeable
+        "--tmpfs=/root/.cache:exec",
         // AWS credentials for sccache
         &format!(
             "--volume={}/.aws:/root/.aws:ro",

@@ -142,7 +142,9 @@ function crate_click() {
 }
 let build_log;
 function change_log(crate, version) {
-    let html = "<object data=\"/logs/" + crate + "/" + version + "\" width=100% height=100%></object>";
+    let path = window.location.pathname;
+    let base = path.slice(0, path.lastIndexOf('/'));
+    let html = "<object data=\"" + base + "/logs/" + crate + "/" + version + "\" width=100% height=100%></object>";
     if (build_log == undefined)  {
         build_log = document.getElementById("log");
     }
@@ -256,7 +258,8 @@ function init() {
     }
 }
 function move_to(crate, version) {
-    let base = window.location.origin;
+    let url = window.location.href;
+    let base = url.slice(0, url.lastIndexOf('/'));
     window.location.href = base + "/logs/" + crate + "/" + version
 }
 function decode_params() {

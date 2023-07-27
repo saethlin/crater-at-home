@@ -1,7 +1,11 @@
 use crate::{Crate, Status, Tool, Version};
 use aws_sdk_s3::client::fluent_builders::PutObject;
+use backoff::Error;
+use backoff::ExponentialBackoff;
 use color_eyre::Result;
 use futures_util::StreamExt;
+use futures_util::TryFutureExt;
+use std::future::Future;
 
 #[derive(Clone)]
 pub struct Client {
@@ -30,18 +34,22 @@ impl Client {
     }
 
     pub async fn upload_raw(&self, krate: &Crate, data: Vec<u8>) -> Result<()> {
-        self.inner
-            .put_object()
-            .bucket(&self.bucket)
-            .key(self.tool.raw_crate_path(krate))
-            .body(data.into())
-            .content_type("text/plain")
-            .send()
-            .await?;
+        retry(|| {
+            self.put_object()
+                .key(self.tool.raw_crate_path(krate))
+                .body(data.clone().into())
+                .content_type("text/plain")
+                .send()
+        })
+        .await?;
         Ok(())
     }
 
     pub async fn download_raw(&self, krate: &Crate) -> Result<String> {
+        retry(|| self._download_raw(krate)).await
+    }
+
+    async fn _download_raw(&self, krate: &Crate) -> Result<String> {
         let response = self
             .inner
             .get_object()
@@ -60,14 +68,16 @@ impl Client {
     }
 
     pub async fn upload_html(&self, krate: &Crate, data: Vec<u8>) -> Result<()> {
-        self.inner
-            .put_object()
-            .bucket(&self.bucket)
-            .key(self.tool.rendered_crate_path(krate))
-            .body(data.into())
-            .content_type("text/html")
-            .send()
-            .await?;
+        retry(move || {
+            self.inner
+                .put_object()
+                .bucket(&self.bucket)
+                .key(self.tool.rendered_crate_path(krate))
+                .body(data.clone().into())
+                .content_type("text/html")
+                .send()
+        })
+        .await?;
         Ok(())
     }
 
@@ -145,108 +155,27 @@ impl Client {
     }
 
     pub async fn upload_landing_page(&self, data: Vec<u8>) -> Result<()> {
-        self.inner
-            .put_object()
-            .bucket(&self.bucket)
-            .key(self.tool.landing_page_path())
-            .body(data.into())
-            .content_type("text/html")
-            .send()
-            .await?;
+        retry(move || {
+            self.inner
+                .put_object()
+                .bucket(&self.bucket)
+                .key(self.tool.landing_page_path())
+                .body(data.clone().into())
+                .content_type("text/html")
+                .send()
+        })
+        .await?;
         Ok(())
     }
 }
 
-/*
-#[tokio::main]
-pub async fn run(args: Args) -> Result<()> {
-    let args = Arc::new(args);
-
-    let mut tasks = JoinSet::new();
-    let config = aws_config::load_from_env().await;
-    let client = Arc::new(aws_sdk_s3::Client::new(&config));
-
-    let mut res = client
-        .list_objects_v2()
-        .bucket(&args.bucket)
-        .into_paginator()
-        .send();
-
-    if !args.dry_run {
-        for path in ["index.html", "ub", "all.html"] {
-            let args = args.clone();
-            let client = client.clone();
-            tasks.spawn(async move {
-                client
-                    .put_object()
-                    .bucket(&args.bucket)
-                    .key(path)
-                    .body(ByteStream::from_path(path).await?)
-                    .content_type("text/html")
-                    .send()
-                    .await?;
-                Ok::<(), Report>(())
-            });
-        }
-    }
-
-    let mut bucket_files = HashMap::new();
-    while let Some(res) = res.next().await {
-        let page = res?;
-        for obj in page.contents().unwrap_or_default() {
-            if let (Some(key), Some(modified)) = (obj.key(), obj.last_modified()) {
-                bucket_files.insert(key.to_string(), SystemTime::try_from(*modified).unwrap());
-            }
-        }
-    }
-
-    for entry in fs::read_dir("logs")? {
-        let entry = entry?;
-        for entry in fs::read_dir(entry.path())? {
-            let entry = entry?;
-            let path = entry.path();
-            let path = path.to_str().unwrap().to_string();
-            if !path.ends_with(".html") {
-                continue;
-            }
-            let disk_modified = entry.metadata()?.modified()?;
-
-            if let Some(bucket_modified) = bucket_files.get(&path) {
-                if bucket_modified > &disk_modified {
-                    continue;
-                }
-            }
-
-            if args.dry_run {
-                println!("Would upload {}", path);
-            } else {
-                println!("Uploading {}", path);
-
-                if tasks.len() >= 256 {
-                    tasks.join_next().await.unwrap()??;
-                }
-
-                let client = client.clone();
-                let args = args.clone();
-                tasks.spawn(async move {
-                    client
-                        .put_object()
-                        .bucket(&args.bucket)
-                        .key(&path)
-                        .body(ByteStream::from_path(&path).await?)
-                        .content_type("text/html")
-                        .send()
-                        .await?;
-                    Ok::<(), Report>(())
-                });
-            }
-        }
-    }
-
-    while let Some(task) = tasks.join_next().await {
-        task??;
-    }
-
-    Ok(())
+async fn retry<I, E, Func, Fut>(mut f: Func) -> std::result::Result<I, E>
+where
+    Func: FnMut() -> Fut,
+    Fut: Future<Output = std::result::Result<I, E>>,
+{
+    backoff::future::retry(ExponentialBackoff::default(), || {
+        f().map_err(Error::transient)
+    })
+    .await
 }
-*/
