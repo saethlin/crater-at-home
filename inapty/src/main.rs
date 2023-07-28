@@ -6,8 +6,35 @@ use std::ptr;
 
 fn main() {
     let mut pty: i32 = 0;
-    // SAFETY: No preconditions
-    let pid = unsafe { libc::forkpty(&mut pty, ptr::null_mut(), ptr::null(), ptr::null()) };
+
+    let mut termios = libc::termios {
+        c_iflag: 0,
+        c_oflag: 0,
+        c_cflag: 0,
+        c_lflag: 0,
+        c_line: 0,
+        c_cc: [0; 32],
+        c_ispeed: 0,
+        c_ospeed: 0,
+    };
+    // SAFETY: Out param is a valid pointer to the right type
+    unsafe {
+        libc::tcgetattr(0, &mut termios);
+    }
+
+    let mut winsz = libc::winsize {
+        ws_col: 0,
+        ws_row: 0,
+        ws_xpixel: 0,
+        ws_ypixel: 0,
+    };
+    // SAFETY: Out param is a valid pointer to the right type
+    unsafe {
+        libc::ioctl(0, libc::TIOCGWINSZ, &mut winsz);
+    }
+
+    // SAFETY: Pointer arguments are valid (and thus ignored) or null
+    let pid = unsafe { libc::forkpty(&mut pty, ptr::null_mut(), &termios, &winsz) };
 
     if pid == 0 {
         // We are the child. Spawn the subprocess based off our arguments.
