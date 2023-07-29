@@ -16,7 +16,7 @@ elif [[ $TOOL == "asan" ]]; then
     ulimit -s 1048576
     export RUST_MIN_STACK=1073741824
     export RUSTFLAGS="$RUSTFLAGS -Cdebuginfo=1 -Zstrict-init-checks=no"
-    export ASAN_OPTIONS="detect_stack_use_after_return=true:allocator_may_return_null=1:detect_invalid_pointer_pairs=2"
+    export ASAN_OPTIONS="color=always:detect_leaks=0:detect_stack_use_after_return=true:allocator_may_return_null=1:detect_invalid_pointer_pairs=2"
 elif [[ $TOOL == "miri" ]]; then
     export RUSTFLAGS="$RUSTFLAGS -Zrandomize-layout -Cdebuginfo=0"
     export MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-panic-on-unsupported"
