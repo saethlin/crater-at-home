@@ -15,7 +15,7 @@ elif [[ $TOOL == "asan" ]]; then
     # We really want to only run out of stack in true infinite recursion.
     ulimit -s 1048576
     export RUST_MIN_STACK=1073741824
-    export RUSTFLAGS="$RUSTFLAGS -Zsanitizer=address -Cdebuginfo=1"
+    export RUSTFLAGS="$RUSTFLAGS -Cdebuginfo=1 -Zstrict-init-checks=no"
     export ASAN_OPTIONS="detect_stack_use_after_return=true:allocator_may_return_null=1:detect_invalid_pointer_pairs=2"
 elif [[ $TOOL == "miri" ]]; then
     export RUSTFLAGS="$RUSTFLAGS -Zrandomize-layout -Cdebuginfo=0"
@@ -32,8 +32,8 @@ function run_build {
 }
 
 function run_asan {
-    cargo +$TOOLCHAIN test --no-run --target=$HOST $ARGS &> /dev/null
-    timeout --kill-after=10 600 inapty cargo +$TOOLCHAIN test --color=always --no-fail-fast --target=$HOST $ARGS
+    cargo +$TOOLCHAIN careful test -Zcareful-sanitizer=address --no-run --target=$HOST $ARGS &> /dev/null
+    timeout --kill-after=10 600 inapty cargo +$TOOLCHAIN careful test -Zcareful-sanitizer=address --color=always --no-fail-fast --target=$HOST $ARGS
 }
 
 function run_miri {
