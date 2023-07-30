@@ -116,7 +116,7 @@ pub async fn run(args: Args) -> Result<()> {
         let args = args.clone();
         let client = client.clone();
 
-        let test_end_delimiter_with_dashes = format!("-{}-", *TEST_END_DELIMITER);
+        let test_end_delimiter_with_dashes = format!("-{}-\n", *TEST_END_DELIMITER).into_bytes();
 
         let mut child = spawn_worker(&args, cpu);
 
@@ -138,10 +138,10 @@ pub async fn run(args: Args) -> Result<()> {
                     .await
                     .unwrap();
 
-                let mut output = String::new();
+                let mut output = Vec::new();
                 loop {
-                    let bytes_read = stdout.read_line(&mut output).await.unwrap();
-                    if output.trim_end().ends_with(&test_end_delimiter_with_dashes) {
+                    let bytes_read = stdout.read_until(b'\n', &mut output).await.unwrap();
+                    if output.ends_with(&test_end_delimiter_with_dashes) {
                         output.truncate(output.len() - test_end_delimiter_with_dashes.len() - 1);
                         break;
                     }
@@ -155,10 +155,7 @@ pub async fn run(args: Args) -> Result<()> {
                 let rendered = render::render_crate(&krate, &output);
 
                 // Upload both
-                client
-                    .upload_raw(&krate, output.clone().into_bytes())
-                    .await
-                    .unwrap();
+                client.upload_raw(&krate, output).await.unwrap();
                 client
                     .upload_html(&krate, rendered.into_bytes())
                     .await

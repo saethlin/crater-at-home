@@ -45,11 +45,11 @@ impl Client {
         Ok(())
     }
 
-    pub async fn download_raw(&self, krate: &Crate) -> Result<String> {
+    pub async fn download_raw(&self, krate: &Crate) -> Result<Vec<u8>> {
         retry(|| self._download_raw(krate)).await
     }
 
-    async fn _download_raw(&self, krate: &Crate) -> Result<String> {
+    async fn _download_raw(&self, krate: &Crate) -> Result<Vec<u8>> {
         let response = self
             .inner
             .get_object()
@@ -63,8 +63,7 @@ impl Client {
             .send()
             .await?;
         let bytes = response.body.collect().await?;
-        let blob = bytes.to_vec();
-        Ok(String::from_utf8(blob).unwrap())
+        Ok(bytes.to_vec())
     }
 
     pub async fn upload_html(&self, krate: &Crate, data: Vec<u8>) -> Result<()> {

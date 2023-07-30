@@ -104,11 +104,7 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
                 header.set_size(raw.len() as u64);
                 header.set_mode(0o644);
                 header.set_cksum();
-                all_raw
-                    .lock()
-                    .await
-                    .append(&header, raw.as_bytes())
-                    .unwrap();
+                all_raw.lock().await.append(&header, &*raw).unwrap();
             }
 
             let rendered = render::render_crate(&krate, &raw);
