@@ -7,9 +7,7 @@ export CARGO_INCREMENTAL=0
 export RUST_BACKTRACE=1
 export RUSTFLAGS="--cap-lints=warn -Copt-level=0 -Zvalidate-mir"
 if [[ $TOOL == "build" ]]; then
-    export RUSTFLAGS="$RUSTFLAGS -Zmir-opt-level=4 -Zinline-mir -Cdebuginfo=0"
-    export RUST_BACKTRACE=1
-    export RUSTC_WRAPPER=sccache
+    export RUSTFLAGS="$RUSTFLAGS -Zmir-opt-level=4 -Zinline-mir -Cdebuginfo=2 -Cdebug-assertions=yes"
 elif [[ $TOOL == "asan" ]]; then
     # Use 1 GB for a default stack size.
     # We really want to only run out of stack in true infinite recursion.
