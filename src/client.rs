@@ -176,9 +176,14 @@ async fn retry<I, E, Func, Fut>(mut f: Func) -> std::result::Result<I, E>
 where
     Func: FnMut() -> Fut,
     Fut: Future<Output = std::result::Result<I, E>>,
+    E: std::fmt::Display,
 {
-    backoff::future::retry(ExponentialBackoff::default(), || {
-        f().map_err(Error::transient)
-    })
+    backoff::future::retry_notify(
+        ExponentialBackoff::default(),
+        || f().map_err(Error::transient),
+        |e, _| {
+            log::warn!("{}", e);
+        },
+    )
     .await
 }
