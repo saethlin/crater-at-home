@@ -177,8 +177,12 @@ async fn sync_landing_page(client: &Client) -> Result<()> {
     let mut output = String::from(crate::render::LANDING_PAGE);
     for c in &rendered {
         let mut it = c.splitn(2, '/');
-        let Some(name) = it.next() else { continue; };
-        let Some(version) = it.next() else { continue; };
+        let Some(name) = it.next() else {
+            continue;
+        };
+        let Some(version) = it.next() else {
+            continue;
+        };
         writeln!(output, "\"{}\": [\"{}\"],", name, version)?;
     }
     output.pop();

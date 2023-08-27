@@ -118,8 +118,12 @@ impl Client {
             for obj in page.contents().unwrap_or_default() {
                 if let Some(key) = obj.key().and_then(|key| key.strip_prefix(&prefix)) {
                     let mut it = key.split('/');
-                    let Some(name) = it.next() else { continue; };
-                    let Some(version) = it.next() else { continue; };
+                    let Some(name) = it.next() else {
+                        continue;
+                    };
+                    let Some(version) = it.next() else {
+                        continue;
+                    };
                     files.push(Crate {
                         name: name.to_string(),
                         version: Version::parse(version),
