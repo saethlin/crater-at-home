@@ -32,6 +32,13 @@ pub fn diagnose(krate: &mut Crate, output: &[u8]) -> Result<()> {
                 source_crate: None,
             }],
         }
+    } else if output.contains("misaligned pointer dereference") {
+        Status::UB {
+            cause: vec![Cause {
+                kind: "misaligned pointer dereference".to_string(),
+                source_crate: None,
+            }],
+        }
     } else if output.contains("attempted to leave type") {
         Status::UB {
             cause: vec![Cause {
