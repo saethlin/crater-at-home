@@ -206,22 +206,8 @@ fn spawn_worker(args: &Args, cpu: usize) -> tokio::process::Child {
             dirs::home_dir().unwrap().display()
         ),
         &format!("--env=TEST_END_DELIMITER={}", *TEST_END_DELIMITER),
-        &format!("--env=SCCACHE_S3_KEY_PREFIX={}/sccache/", args.tool),
-        &format!("--env=SCCACHE_BUCKET={}", args.bucket),
         &format!("--env=TOOL={}", args.tool),
     ]);
-    // Pass through environment variables to enable sccache
-    for var in &[
-        "SCCACHE_REGION",
-        "AWS_ACCESS_KEY_ID",
-        "AWS_SECRET_ACCESS_KEY",
-    ] {
-        cmd.arg(&format!(
-            "--env={}={}",
-            var,
-            std::env::var(var).unwrap_or_default()
-        ));
-    }
     cmd.args([
         // Enforce the memory limit
         &format!("--memory={}g", args.memory_limit_gb),
