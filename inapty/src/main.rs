@@ -6,9 +6,9 @@ use std::ptr;
 
 fn main() {
     let winsz = libc::winsize {
-        ws_col: 256,
+        ws_col: 128,
         ws_row: 64,
-        ws_xpixel: 2560,
+        ws_xpixel: 1280,
         ws_ypixel: 1408,
     };
 
