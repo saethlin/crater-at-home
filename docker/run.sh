@@ -25,21 +25,25 @@ TOOLCHAIN=nightly
 
 HOST=$(rustc +$TOOLCHAIN -vV | grep host | rev | cut -d' ' -f1 | rev)
 
+function timed {
+    timeout --kill-after=10s 1h "$@"
+}
+
 function run_build {
-    inapty cargo +$TOOLCHAIN test --no-run --target=$HOST $ARGS
+    timed inapty cargo +$TOOLCHAIN test --no-run --target=$HOST $ARGS
 }
 
 function run_asan {
-    cargo +$TOOLCHAIN careful test -Zcareful-sanitizer=address --no-run --target=$HOST $ARGS &> /dev/null
-    timeout --kill-after=10 600 inapty cargo +$TOOLCHAIN careful test -Zcareful-sanitizer=address --color=always --no-fail-fast --target=$HOST $ARGS
+    timed cargo +$TOOLCHAIN careful test -Zcareful-sanitizer=address --no-run --target=$HOST $ARGS &> /dev/null
+    timed inapty cargo +$TOOLCHAIN careful test -Zcareful-sanitizer=address --color=always --no-fail-fast --target=$HOST $ARGS
 }
 
 function run_miri {
     cargo +$TOOLCHAIN miri setup
-    cargo +$TOOLCHAIN miri test --no-run $ARGS &> /dev/null
+    timed cargo +$TOOLCHAIN miri test --no-run $ARGS &> /dev/null
     # rustdoc is already passed --color=always, so adding it to the global MIRIFLAGS is just an error
-    MIRIFLAGS="$MIRIFLAGS --color=always" timeout --kill-after=10 3600 inapty cargo +$TOOLCHAIN miri nextest run --color=always --no-fail-fast --config-file=/root/.cargo/nextest.toml $ARGS
-    timeout --kill-after=10 600 inapty cargo +$TOOLCHAIN miri test --doc --no-fail-fast $ARGS
+    MIRIFLAGS="$MIRIFLAGS --color=always" timed inapty cargo +$TOOLCHAIN miri nextest run --color=always --no-fail-fast --config-file=/root/.cargo/nextest.toml $ARGS
+    timed inapty cargo +$TOOLCHAIN miri test --doc --no-fail-fast $ARGS
 }
 
 if [[ $TOOL == "miri" ]]; then
