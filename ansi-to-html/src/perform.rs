@@ -119,7 +119,11 @@ impl Perform for Renderer {
                     &[107] => self.background = Color::bright_white(),
 
                     _ => {
-                        log::warn!("Unhandled m with unknown start: {:?} in {:?}", params, self.name)
+                        log::warn!(
+                            "Unhandled m with unknown start: {:?} in {:?}",
+                            params,
+                            self.name
+                        )
                     }
                 }
             }
@@ -156,7 +160,12 @@ impl Perform for Renderer {
         } else if action == 'G' {
             self.set_column(params.get::<1>().map(|a| a[0]).unwrap_or(1));
         } else {
-            log::warn!("Unhandled dispatch {} {:?} in {:?}", action, params, self.name);
+            log::warn!(
+                "Unhandled dispatch {} {:?} in {:?}",
+                action,
+                params,
+                self.name
+            );
         }
     }
 }
