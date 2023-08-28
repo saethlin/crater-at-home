@@ -1,0 +1,6 @@
+FROM ghcr.io/saethlin/crater-at-home-ci:latest
+
+COPY nextest.toml /root/.cargo/nextest.toml
+COPY run.sh /root/run.sh
+
+ENTRYPOINT ["bash", "/root/run.sh"]
