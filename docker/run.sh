@@ -3,6 +3,13 @@ exec 2>&1
 
 export TERM=xterm-256color
 
+# Extract the cache if it exists
+# Ideally it's just an error to not have a cache, but this script is executed to build the cache.
+if [ -e /cache.tar.gz ]
+then
+    tar xf /cache.tar.gz
+fi
+
 export CARGO_INCREMENTAL=0
 export RUST_BACKTRACE=1
 export RUSTFLAGS="--cap-lints=warn -Copt-level=0 -Zvalidate-mir"
@@ -26,31 +33,31 @@ TOOLCHAIN=nightly
 HOST=$(rustc +$TOOLCHAIN -vV | grep host | rev | cut -d' ' -f1 | rev)
 
 function timed {
-    timeout --kill-after=10s 1h "$@"
+    timeout --kill-after=10s 1h inapty cargo +$TOOLCHAIN "$@" --target=$HOST
 }
 
 function run_build {
-    timed inapty cargo +$TOOLCHAIN test --no-run --target=$HOST $ARGS
+    timed test --no-run $ARGS
 }
 
 function run_check {
-    inapty cargo +$TOOLCHAIN check --target=$HOST $ARGS
+    timed check $ARGS
 }
 
 function run_asan {
-    timed cargo +$TOOLCHAIN careful test -Zcareful-sanitizer=address --no-run --target=$HOST $ARGS &> /dev/null
-    timed inapty cargo +$TOOLCHAIN careful test -Zcareful-sanitizer=address --color=always --no-fail-fast --target=$HOST $ARGS
+    timed careful test -Zcareful-sanitizer=address --no-run $ARGS &> /dev/null
+    timed careful test -Zcareful-sanitizer=address --color=always --no-fail-fast $ARGS
 }
 
 function run_miri {
-    timed cargo +$TOOLCHAIN miri test --no-run $ARGS &> /dev/null
+    timed test --no-run $ARGS &> /dev/null
     # rustdoc is already passed --color=always, so adding it to the global MIRIFLAGS is just an error
-    MIRIFLAGS="$MIRIFLAGS --color=always" timed inapty cargo +$TOOLCHAIN miri nextest run --color=always --no-fail-fast --config-file=/root/.cargo/nextest.toml $ARGS
-    timed inapty cargo +$TOOLCHAIN miri test --doc --no-fail-fast $ARGS
+    MIRIFLAGS="$MIRIFLAGS --color=always" timed miri nextest run --color=always --no-fail-fast --config-file=/root/.cargo/nextest.toml $ARGS
+    timed miri test --doc --no-fail-fast $ARGS
 }
 
 if [[ $TOOL == "miri" ]]; then
-    cargo +$TOOLCHAIN miri setup &> /dev/null
+    timed miri setup &> /dev/null
 fi
 
 while read crate;
@@ -60,7 +67,7 @@ do
     find /build /tmp /root/.cargo/registry -mindepth 1 -delete
     if cargo download $crate /build; then
         ARGS=$(get-args $crate)
-        cargo +$TOOLCHAIN update &> /dev/null
+        cargo update &> /dev/null
         if [[ $TOOL == "build" ]]; then
             run_build
         elif [[ $TOOL == "check" ]]; then
