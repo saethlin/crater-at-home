@@ -30,6 +30,12 @@ if [[ "$1" == "style" ]]
 then
     group cargo fmt --check
     group cargo clippy -- -Dclippy::all
+elif [[ "$1" == "fuzz" ]]
+then
+    group rustup toolchain install nightly
+    group cargo install cargo-fuzz
+    cd ansi-to-html
+    group cargo +nightly fuzz run render -- -runs=100000
 else
     group cargo build
 
