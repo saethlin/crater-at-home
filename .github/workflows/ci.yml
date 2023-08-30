@@ -9,36 +9,22 @@ on:
 name: CI
 
 jobs:
-  style:
+  suite_matrix:
+    strategy:
+      matrix:
+        suite: [style, miri, asan, build]
     runs-on: ubuntu-latest
-    name: Style Checks
+    name: Test ${{ matrix.suite }}
     steps:
       - uses: actions/checkout@v3
-      - name: Install toolchain
-        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
-      - name: Style
-        run: |
-          cargo fmt --check
-          cargo clippy -- -Dclippy::all
-
-  test:
-    runs-on: ubuntu-latest
-    name: Test
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install toolchain
-        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
       - name: Run
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
         run: |
-          cargo run -- sync --tool=miri --bucket=miri-bot-dev
-          cargo run -- run --tool=miri --bucket=miri-bot-dev --crate-list=ci-crates
-          cargo run -- sync --tool=asan --bucket=miri-bot-dev
-          cargo run -- run --tool=asan --bucket=miri-bot-dev --crate-list=ci-crates
-          cargo run -- sync --tool=build --bucket=miri-bot-dev
-          cargo run -- run --tool=build --bucket=miri-bot-dev --crate-list=ci-crates
+          echo "::group::Install dependencies"
+          cargo install ansi-to-html inapty --locked --git https://github.com/saethlin/miri-tools
+          echo "::endgroup"
+          inapty bash ci.sh ${{ matrix.suite }} | tee /dev/stderr 2> >(ansi-to-html > output.html)
+          aws s3 cp output.html s3://miri-bot-dev/${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${{ matrix.suite }}.html

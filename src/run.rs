@@ -81,15 +81,13 @@ async fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
 
 #[tokio::main]
 pub async fn run(args: Args) -> Result<()> {
+    let dockerfile = if std::env::var_os("CI").is_some() {
+        "docker/Dockerfile.ci"
+    } else {
+        "docker/Dockerfile"
+    };
     let status = std::process::Command::new("docker")
-        .args([
-            "build",
-            "-t",
-            "crater-at-home",
-            "-f",
-            "docker/Dockerfile",
-            "docker/",
-        ])
+        .args(["build", "-t", "crater-at-home", "-f", dockerfile, "docker/"])
         .status()?;
     color_eyre::eyre::ensure!(status.success(), "docker image build failed!");
 
