@@ -23,6 +23,8 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
         run: |
-           cargo install ansi-to-html inapty --locked --git https://github.com/saethlin/miri-tools
-           inapty bash ci.sh ${{ matrix.suite }} | tee /dev/stderr 2> >(ansi-to-html > output.html)
-           aws s3 cp output.html s3://miri-bot-dev/${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${{ matrix.suite }}.html
+          echo "::group::Install dependencies"
+          cargo install ansi-to-html inapty --locked --git https://github.com/saethlin/miri-tools
+          echo "::endgroup"
+          inapty bash ci.sh ${{ matrix.suite }} | tee /dev/stderr 2> >(ansi-to-html > output.html)
+          aws s3 cp output.html s3://miri-bot-dev/${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${{ matrix.suite }}.html

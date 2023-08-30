@@ -12,24 +12,10 @@ function endgroup {
     echo "::endgroup"
 }
 
-function style() {
-    cargo fmt --check
-    cargo clippy -- -Dclippy::all
-}
-
-function miri() {
-    cargo run -- sync --tool=miri --bucket=miri-bot-dev
-    cargo run -- run --tool=miri --bucket=miri-bot-dev --crate-list=ci-crates --rerun
-}
-
-function asan() {
-    cargo run -- sync --tool=asan --bucket=miri-bot-dev
-    cargo run -- run --tool=asan --bucket=miri-bot-dev --crate-list=ci-crates --rerun
-}
-
-function build() {
-    cargo run -- sync --tool=build --bucket=miri-bot-dev
-    cargo run -- run --tool=build --bucket=miri-bot-dev --crate-list=ci-crates --rerun
+function group {
+    echo "::group::$@"
+    $@
+    echo "::endgroup"
 }
 
 begingroup Update toolchain
@@ -40,13 +26,15 @@ rustup update
 
 endgroup
 
-if "$1" -ne "style"
+if [[ "$1" == "style" ]]
 then
-    begingroup cargo build
-    cargo build
+    group cargo fmt --check
+    group cargo clippy -- -Dclippy::all
+else
+    group cargo build
+
+    begingroup "Test --tool=$1"
+    cargo run -- sync --tool="$1" --bucket=miri-bot-dev
+    cargo run -- run --tool="$1" --bucket=miri-bot-dev --crate-list=ci-crates --rerun
     endgroup
 fi
-
-begingroup "Test" $1
-$1
-endgroup
