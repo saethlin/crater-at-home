@@ -6,11 +6,9 @@ export TERM=xterm-256color
 
 function begingroup {
     echo "::group::$@"
-    set -x
 }
 
 function endgroup {
-    set +x
     echo "::endgroup"
 }
 
@@ -42,11 +40,13 @@ rustup update
 
 endgroup
 
-if $1 -ne "style"
+if "$1" -ne "style"
 then
     begingroup cargo build
     cargo build
     endgroup
 fi
 
+begingroup "Test" $1
 $1
+endgroup
