@@ -42,7 +42,8 @@ rustup update
 
 endgroup
 
-if $1 -ne "style" then
+if $1 -ne "style"
+then
     begingroup cargo build
     cargo build
     endgroup
