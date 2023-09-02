@@ -33,6 +33,10 @@ function run_build {
     timed inapty cargo +$TOOLCHAIN test --no-run --target=$HOST $ARGS
 }
 
+function run_check {
+    inapty cargo +$TOOLCHAIN check --target=$HOST $ARGS
+}
+
 function run_asan {
     timed cargo +$TOOLCHAIN careful test -Zcareful-sanitizer=address --no-run --target=$HOST $ARGS &> /dev/null
     timed inapty cargo +$TOOLCHAIN careful test -Zcareful-sanitizer=address --color=always --no-fail-fast --target=$HOST $ARGS
@@ -59,6 +63,8 @@ do
         cargo +$TOOLCHAIN update &> /dev/null
         if [[ $TOOL == "build" ]]; then
             run_build
+        elif [[ $TOOL == "check" ]]; then
+            run_check
         elif [[ $TOOL == "asan" ]]; then
             run_asan
         elif [[ $TOOL == "miri" ]]; then

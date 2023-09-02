@@ -44,6 +44,7 @@ pub enum Tool {
     Miri,
     Asan,
     Build,
+    Check,
 }
 
 impl Tool {
@@ -52,6 +53,7 @@ impl Tool {
             Tool::Miri => "miri/raw",
             Tool::Asan => "asan/raw",
             Tool::Build => "build/raw",
+            Tool::Check => "check/raw",
         }
     }
 
@@ -64,6 +66,7 @@ impl Tool {
             Tool::Miri => "miri/logs",
             Tool::Asan => "asan/logs",
             Tool::Build => "build/logs",
+            Tool::Check => "check/logs",
         }
     }
 
@@ -76,6 +79,7 @@ impl Tool {
             Tool::Miri => "miri/index.html",
             Tool::Asan => "asan/index.html",
             Tool::Build => "build/index.html",
+            Tool::Check => "check/index.html",
         }
     }
 }
@@ -86,6 +90,7 @@ impl fmt::Display for Tool {
             Tool::Miri => "miri",
             Tool::Asan => "asan",
             Tool::Build => "build",
+            Tool::Check => "check",
         };
         f.write_str(s)
     }
@@ -99,6 +104,7 @@ impl FromStr for Tool {
             "miri" => Ok(Self::Miri),
             "asan" => Ok(Self::Asan),
             "build" => Ok(Self::Build),
+            "check" => Ok(Self::Check),
             _ => Err(format!("Invalid tool {}", s)),
         }
     }
