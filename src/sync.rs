@@ -1,4 +1,5 @@
 use crate::{client::Client, db_dump, render, Crate, Tool};
+use aws_smithy_types_convert::date_time::DateTimeExt;
 use clap::Parser;
 use color_eyre::{Report, Result};
 use std::{collections::HashMap, fmt::Write, sync::Arc};
@@ -29,25 +30,46 @@ pub async fn run(args: Args) -> Result<()> {
         .send()
         .await?;
 
-    log::info!("Updating the cached crates.io database dump");
-    let crates = db_dump::download()?;
-    let name_to_downloads: HashMap<_, _> = crates
-        .iter()
-        .map(|c| (c.name.clone(), c.recent_downloads))
-        .collect();
-    let mut output = Vec::new();
-    for krate in crates.iter().cloned() {
-        output.push((krate.name, krate.version));
-    }
-    let serialized = serde_json::to_string(&output).unwrap();
+    let should_refresh_db = client
+        .list_db()
+        .await?
+        .map(|db| {
+            let now = time::OffsetDateTime::now_utc();
+            let modified = db.last_modified.unwrap().to_time().unwrap();
+            (now - modified).whole_hours() > 24
+        })
+        .unwrap_or(true);
 
-    client
-        .put_object()
-        .key("crates.json")
-        .body(serialized.into_bytes().into())
-        .content_type("application/json")
-        .send()
-        .await?;
+    let name_to_downloads = if should_refresh_db {
+        log::info!("Updating the cached crates.io database dump");
+        let crates = db_dump::download()?;
+        let mut name_to_downloads = HashMap::new();
+        let mut versions = Vec::new();
+        for krate in crates.iter() {
+            name_to_downloads.insert(krate.name.clone(), krate.recent_downloads);
+            versions.push((krate.name.clone(), krate.version.to_string()));
+        }
+
+        let serialized = serde_json::to_string(&versions).unwrap();
+        client
+            .put_object()
+            .key("crates.json")
+            .body(serialized.into_bytes().into())
+            .content_type("application/json")
+            .send()
+            .await?;
+        let serialized = serde_json::to_string(&name_to_downloads).unwrap();
+        client
+            .put_object()
+            .key("downloads.json")
+            .body(serialized.into_bytes().into())
+            .content_type("application/json")
+            .send()
+            .await?;
+        name_to_downloads
+    } else {
+        client.get_crate_downloads().await?
+    };
 
     log::info!("Downloading, rendering, and uploading rendered HTML for all crates");
     let mut crates = sync_all_html(client.clone()).await?;

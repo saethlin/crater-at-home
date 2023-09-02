@@ -46,7 +46,7 @@ pub struct Args {
 }
 
 async fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
-    let all_crates = client.get_crate_list().await?;
+    let all_crates = client.get_crate_versions().await?;
     let crates = if let Some(crate_list) = &args.crate_list {
         let crate_list = fs::read_to_string(crate_list).unwrap();
         let all_crates: HashMap<String, Crate> = all_crates

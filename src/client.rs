@@ -1,10 +1,12 @@
 use crate::{Crate, Status, Tool, Version};
 use aws_sdk_s3::client::fluent_builders::PutObject;
+use aws_sdk_s3::model::Object;
 use backoff::Error;
 use backoff::ExponentialBackoff;
 use color_eyre::Result;
 use futures_util::StreamExt;
 use futures_util::TryFutureExt;
+use std::collections::HashMap;
 use std::future::Future;
 
 #[derive(Clone)]
@@ -80,7 +82,21 @@ impl Client {
         Ok(())
     }
 
-    pub async fn get_crate_list(&self) -> Result<Vec<Crate>> {
+    pub async fn get_crate_downloads(&self) -> Result<HashMap<String, Option<u64>>> {
+        let response = self
+            .inner
+            .get_object()
+            .bucket(&self.bucket)
+            .key("downloads.json")
+            .send()
+            .await?;
+        let bytes = response.body.collect().await?;
+        let blob = bytes.to_vec();
+        let crates: HashMap<_, _> = serde_json::from_slice(&blob)?;
+        Ok(crates)
+    }
+
+    pub async fn get_crate_versions(&self) -> Result<Vec<Crate>> {
         let response = self
             .inner
             .get_object()
@@ -169,6 +185,20 @@ impl Client {
         })
         .await?;
         Ok(())
+    }
+
+    pub async fn list_db(&self) -> Result<Option<Object>> {
+        let res = retry(move || {
+            self.inner
+                .list_objects_v2()
+                .bucket(&self.bucket)
+                .prefix("crates.json")
+                .max_keys(1)
+                .send()
+        })
+        .await?;
+        let meta = res.contents.and_then(|c| c.get(0).cloned());
+        Ok(meta)
     }
 }
 
