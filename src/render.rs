@@ -37,9 +37,8 @@ function scroll_to_ub() {{
 }
 
 pub fn render_crate(krate: &Crate, output: &[u8]) -> String {
-    let output = String::from_utf8_lossy(output);
     let (css, mut encoded) =
-        ansi_to_html::convert_escaped(format!("{}/{}", krate.name, krate.version), &output);
+        ansi_to_html::render(format!("{}/{}", krate.name, krate.version), output);
 
     // Remove blank rows from the bottom of the terminal output
     let ending = "\n</span>";

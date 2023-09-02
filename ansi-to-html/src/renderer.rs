@@ -1,4 +1,5 @@
 use crate::ansi::Color;
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 pub struct Renderer {
@@ -14,18 +15,19 @@ pub struct Renderer {
     styles: Styles,
 }
 
-#[derive(Default)]
-struct Styles {
-    known: HashMap<(Color, bool), String>,
+#[derive(Debug, Default)]
+pub struct Styles {
+    known: RefCell<HashMap<(Color, bool), String>>,
 }
 
 const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
 const BASE: usize = ALPHABET.len();
 
 impl Styles {
-    fn get(&mut self, color: Color, bold: bool) -> &str {
-        let mut next_idx = self.known.len();
-        self.known.entry((color, bold)).or_insert_with(|| {
+    fn with<T>(&self, color: Color, bold: bool, mut func: impl FnMut(&str) -> T) -> T {
+        let mut known = self.known.borrow_mut();
+        let mut next_idx = known.len();
+        let name = known.entry((color, bold)).or_insert_with(|| {
             let mut name = String::new();
             loop {
                 name.push(ALPHABET[next_idx % BASE] as char);
@@ -35,7 +37,8 @@ impl Styles {
                 }
             }
             name
-        })
+        });
+        func(&name)
     }
 }
 
@@ -155,7 +158,7 @@ impl Renderer {
 
     pub fn erase_in_display(&mut self, mode: Option<u16>) {
         // Ignore attempts to clear the whole screen
-        if mode == Some(2) {
+        if mode == Some(2) || mode == Some(3) {
             return;
         }
         log::warn!("Unimplemented erase_in_display {:?}", mode);
@@ -216,7 +219,7 @@ impl Renderer {
         let _ = &row.cells[..row.position];
     }
 
-    pub fn emit_html(&mut self, html: &mut String) {
+    pub fn emit_html<W: std::io::Write>(&self, mut out: W) -> std::io::Result<()> {
         let mut prev = Cell {
             text: ' ',
             foreground: Color::bright_white(),
@@ -227,10 +230,9 @@ impl Renderer {
             dim: false,
         };
 
-        html.clear();
-        html.push_str("<span>");
+        out.write_all(b"<span>")?;
 
-        for row in &mut self.rows[..self.current_row] {
+        for row in &self.rows[..self.current_row] {
             let row = &*row;
             for cell in &row.cells {
                 // Terminal applications will often reset the style right after some formatted text
@@ -239,36 +241,35 @@ impl Renderer {
                 // in emitted HTML.
                 if cell.text != ' ' {
                     if cell.bold != prev.bold || cell.foreground != prev.foreground {
-                        let class = self.styles.get(cell.foreground, cell.bold);
-                        html.push_str("</span><span class='");
-                        html.push_str(class);
-                        html.push_str("'>");
+                        self.styles.with(cell.foreground, cell.bold, |class| {
+                            write!(out, "</span><span class='{}'>", class)
+                        })?;
                     }
                     prev = cell.clone();
                 }
                 match cell.text {
-                    '<' => html.push_str("&lt"),
-                    '>' => html.push_str("&gt"),
-                    c => html.push(c),
+                    '<' => out.write_all(b"&lt")?,
+                    '>' => out.write_all(b"&gt")?,
+                    c => write!(out, "{}", c)?,
                 }
             }
-            html.push('\n');
+            out.write_all(&[b'\n'])?;
         }
-        html.push_str("</span>");
+        out.write_all(b"</span>")
     }
 
-    pub fn emit_css(&self) -> String {
-        let mut css = String::new();
-        for ((color, bold), name) in self.styles.known.iter() {
-            let line = format!(
+    pub fn emit_css<W: std::io::Write>(&self, mut out: W) -> std::io::Result<()> {
+        for ((color, bold), name) in self.styles.known.borrow().iter() {
+            write!(
+                out,
                 ".{}{{color:{};font-weight:{}}}\n",
                 name,
                 color.as_str(),
                 if *bold { "bold" } else { "normal" }
-            );
-            css.push_str(&line);
+            )?;
         }
-        css
+
+        Ok(())
     }
 
     /*
