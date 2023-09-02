@@ -14,14 +14,28 @@ jobs:
       matrix:
         suite: [style, check, build, miri, asan, fuzz]
     runs-on: ubuntu-latest
-    name: Test ${{ matrix.suite }}
+    name: ${{ matrix.suite }}
     steps:
       - uses: actions/checkout@v3
+      - name: Rustup
+        run: |
+          rustup self update
+          rustup default stable
+          rustup update
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/
+            target/
+          key: ${{ runner.os }}-${{ matrix.suite }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-$(rustc --version)
       - name: Run
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: -Cdebuginfo=0
         run: |
           echo "::group::Install dependencies"
           cargo install ansi-to-html inapty --locked --git https://github.com/saethlin/miri-tools
