@@ -195,7 +195,7 @@ fn spawn_worker(args: &Args, cpu: usize) -> tokio::process::Child {
         // rustdoc tries to write to and executes files in /tmp, odd move but whatever
         "--tmpfs=/tmp:exec",
         // The default cargo registry location; we download dependences in the sandbox
-        "--tmpfs=/root/.cargo/registry:exec",
+        "--tmpfs=/root/.cargo/registry",
         // cargo-miri builds a sysroot under /root/.cache, so why not make it all writeable
         "--tmpfs=/root/.cache:exec",
         &format!("--env=TEST_END_DELIMITER={}", *TEST_END_DELIMITER),
