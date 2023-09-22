@@ -1,7 +1,6 @@
 FROM ghcr.io/saethlin/crates-build-env:latest
 
 ENV PATH=/root/.cargo/bin:$PATH
-ENV TOOLCHAIN=nightly
 
 RUN apt-get update && apt-get install -y curl build-essential && \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \

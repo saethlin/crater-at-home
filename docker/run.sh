@@ -10,11 +10,14 @@ then
     tar xf /cache.tar.gz
 fi
 
+TOOLCHAIN=nightly
+HOST=$(rustc +$TOOLCHAIN -vV | grep host | rev | cut -d' ' -f1 | rev)
+
 export CARGO_INCREMENTAL=0
 export RUST_BACKTRACE=1
 export RUSTFLAGS="--cap-lints=warn -Copt-level=0 -Zvalidate-mir"
 if [[ $HOST == "x86_64-unknown-linux-gnu" ]]; then
-    export RUSTFLAGS="$RUSTFLAGS -Ctarget-cpu=haswell"
+    export RUSTFLAGS="$RUSTFLAGS -Ctarget-cpu=x86-64-v2"
 fi
 
 if [[ $TOOL == "build" ]]; then
@@ -31,10 +34,6 @@ elif [[ $TOOL == "miri" ]]; then
     export MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-panic-on-unsupported"
 fi
 export RUSTDOCFLAGS=$RUSTFLAGS
-
-TOOLCHAIN=nightly
-
-HOST=$(rustc +$TOOLCHAIN -vV | grep host | rev | cut -d' ' -f1 | rev)
 
 function timed {
     timeout --kill-after=10s 1h inapty cargo +$TOOLCHAIN "$@" --target=$HOST
