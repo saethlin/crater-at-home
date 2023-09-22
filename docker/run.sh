@@ -13,6 +13,10 @@ fi
 export CARGO_INCREMENTAL=0
 export RUST_BACKTRACE=1
 export RUSTFLAGS="--cap-lints=warn -Copt-level=0 -Zvalidate-mir"
+if [[ $HOST == "x86_64-unknown-linux-gnu" ]]; then
+    export RUSTFLAGS="$RUSTFLAGS -Ctarget-cpu=haswell"
+fi
+
 if [[ $TOOL == "build" ]]; then
     export RUSTFLAGS="$RUSTFLAGS -Zmir-opt-level=4 -Zinline-mir -Cdebuginfo=2 -Cdebug-assertions=yes"
 elif [[ $TOOL == "asan" ]]; then
