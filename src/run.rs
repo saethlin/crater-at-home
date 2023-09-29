@@ -94,13 +94,14 @@ pub async fn run(args: Args) -> Result<()> {
     log::info!("Figuring out what crates have a build log already");
     let client = Arc::new(Client::new(args.tool, &args.bucket).await?);
     let mut crates = build_crate_list(&args, &client).await?;
-    let finished_crates = client.list_finished_crates().await?;
-    crates.retain(|krate| {
-        args.rerun
-            || !finished_crates
+    if !args.rerun {
+        let finished_crates = client.list_finished_crates().await?;
+        crates.retain(|krate| {
+            !finished_crates
                 .iter()
                 .any(|c| c.name == krate.name && c.version == krate.version)
-    });
+        });
+    }
 
     if !args.rev {
         // We are going to pop crates from this, so we now need to invert the order
