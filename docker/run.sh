@@ -32,6 +32,7 @@ elif [[ $TOOL == "asan" ]]; then
 elif [[ $TOOL == "miri" ]]; then
     export RUSTFLAGS="$RUSTFLAGS -Zrandomize-layout -Cdebuginfo=0"
     export MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-panic-on-unsupported"
+    export MIRI_BACKTRACE=1
 fi
 export RUSTDOCFLAGS=$RUSTFLAGS
 
