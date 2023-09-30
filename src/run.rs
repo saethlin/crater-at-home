@@ -192,7 +192,7 @@ fn spawn_worker(args: &Args, cpu: usize) -> tokio::process::Child {
         // We set up our filesystem as read-only, but with 3 exceptions
         "--read-only",
         // The directory we are building in (not just its target dir!) is all writable
-        "--tmpfs=/build:exec",
+        "--volume=/build",
         // rustdoc tries to write to and executes files in /tmp, odd move but whatever
         "--tmpfs=/tmp:exec",
         // The default cargo registry location; we download dependences in the sandbox
