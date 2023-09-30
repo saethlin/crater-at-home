@@ -150,6 +150,13 @@ pub async fn run(args: Args) -> Result<()> {
                 }
                 log::debug!("{:?}", output);
 
+                if let Ok(Some(_)) = child.try_wait() {
+                    log::warn!("A worker crashed! Standing up a new one...");
+                    child = spawn_worker(&args, cpu);
+                    // Don't upload logs for crashed runs
+                    continue;
+                }
+
                 // Render HTML for the stderr/stdout we captured
                 let rendered = render::render_crate(&krate, &output);
 
@@ -161,11 +168,6 @@ pub async fn run(args: Args) -> Result<()> {
                     .unwrap();
 
                 log::info!("Finished {} {}", krate.name, krate.version);
-
-                if let Ok(Some(_)) = child.try_wait() {
-                    log::warn!("A worker crashed! Standing up a new one...");
-                    child = spawn_worker(&args, cpu);
-                }
             }
         });
     }
