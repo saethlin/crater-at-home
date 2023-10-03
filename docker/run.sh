@@ -31,7 +31,7 @@ elif [[ $TOOL == "asan" ]]; then
     export ASAN_OPTIONS="color=always:detect_leaks=0:detect_stack_use_after_return=true:allocator_may_return_null=1:detect_invalid_pointer_pairs=2"
 elif [[ $TOOL == "miri" ]]; then
     export RUSTFLAGS="$RUSTFLAGS -Zrandomize-layout -Cdebuginfo=0"
-    export MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-panic-on-unsupported"
+    export MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-ignore-leaks"
     export MIRI_BACKTRACE=1
 fi
 export RUSTDOCFLAGS=$RUSTFLAGS
@@ -57,7 +57,9 @@ function run_miri {
     timed test --no-run $ARGS &> /dev/null
     # rustdoc is already passed --color=always, so adding it to the global MIRIFLAGS is just an error
     MIRIFLAGS="$MIRIFLAGS --color=always" timed miri nextest run --color=always --no-fail-fast --config-file=/root/.cargo/nextest.toml $ARGS
-    timed miri test --doc --no-fail-fast $ARGS
+    # nextest runs one interpreter per test, so unsupported errors only terminate the test not the whole suite.
+    # But we need to panic on unsupported for doctests, because nextest doesn't support doctests.
+    MIRIFLAGS="$MIRIFLAGS -Zmiri-panic-on-unsupported" timed miri test --doc --no-fail-fast $ARGS
 }
 
 if [[ $TOOL == "miri" ]]; then
