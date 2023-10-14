@@ -52,7 +52,7 @@ impl Metadata {
 
 fn run() -> Option<String> {
     let krate = std::env::args().nth(1)?;
-    let krate = krate.split("==").next()?;
+    let krate = krate.split('@').next()?;
 
     let mut cmd = Command::new("cargo");
     if let Ok(toolchain) = std::env::var("TOOLCHAIN") {
