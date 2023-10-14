@@ -10,3 +10,4 @@ clap = { version = "3.2", features = ["derive"] }
 ureq = "2.5"
 tar = "0.4"
 flate2 = "1"
+json = "0.12.4"
