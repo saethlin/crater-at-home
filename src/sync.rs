@@ -23,11 +23,11 @@ pub async fn run(args: Args) -> Result<()> {
 
     log::info!("Uploading the error page");
     client
-        .put_object()
-        .key(format!("{}/403", args.tool))
-        .body(ERROR_PAGE.as_bytes().to_vec().into())
-        .content_type("text/html")
-        .send()
+        .upload(
+            &format!("{}/403", args.tool),
+            ERROR_PAGE.as_bytes(),
+            "text/html",
+        )
         .await?;
 
     let should_refresh_db = client
@@ -52,19 +52,11 @@ pub async fn run(args: Args) -> Result<()> {
 
         let serialized = serde_json::to_string(&versions).unwrap();
         client
-            .put_object()
-            .key("crates.json")
-            .body(serialized.into_bytes().into())
-            .content_type("application/json")
-            .send()
+            .upload("crates.json", serialized.as_bytes(), "application/json")
             .await?;
         let serialized = serde_json::to_string(&name_to_downloads).unwrap();
         client
-            .put_object()
-            .key("downloads.json")
-            .body(serialized.into_bytes().into())
-            .content_type("application/json")
-            .send()
+            .upload("downloads.json", serialized.as_bytes(), "application/json")
             .await?;
         name_to_downloads
     } else {
@@ -87,11 +79,11 @@ pub async fn run(args: Args) -> Result<()> {
 
     let ub_page = crate::render::render_ub(&crates)?;
     client
-        .put_object()
-        .key(format!("{}/ub", args.tool))
-        .body(ub_page.into_bytes().into())
-        .content_type("text/html")
-        .send()
+        .upload(
+            &format!("{}/ub", args.tool),
+            ub_page.as_bytes(),
+            "text/html",
+        )
         .await?;
 
     Ok(())
@@ -167,11 +159,11 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
         .finish()
         .unwrap();
     client
-        .put_object()
-        .key(format!("{}/raw.tar.xz", client.tool()))
-        .body(raw.into())
-        .content_type("application/octet-stream")
-        .send()
+        .upload(
+            &format!("{}/raw.tar.xz", client.tool()),
+            &raw,
+            "application/octet-stream",
+        )
         .await?;
 
     let rendered: Vec<u8> = Arc::into_inner(all_rendered)
@@ -182,11 +174,11 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
         .finish()
         .unwrap();
     client
-        .put_object()
-        .key(format!("{}/html.tar.xz", client.tool()))
-        .body(rendered.into())
-        .content_type("application/octet-stream")
-        .send()
+        .upload(
+            &format!("{}/html.tar.xz", client.tool()),
+            &rendered,
+            "application/octet-stream",
+        )
         .await?;
 
     Ok(crates)

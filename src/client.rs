@@ -1,6 +1,5 @@
 use crate::{Crate, Status, Tool, Version};
-use aws_sdk_s3::client::fluent_builders::PutObject;
-use aws_sdk_s3::model::Object;
+use aws_sdk_s3::model::{CompletedMultipartUpload, CompletedPart, Object};
 use backoff::Error;
 use backoff::ExponentialBackoff;
 use color_eyre::Result;
@@ -15,6 +14,8 @@ pub struct Client {
     bucket: String,
     tool: Tool,
 }
+
+const CHUNK_SIZE: usize = 5 * 1024 * 1024;
 
 impl Client {
     pub async fn new(tool: Tool, bucket: &str) -> Result<Self> {
@@ -31,20 +32,73 @@ impl Client {
         self.tool
     }
 
-    pub fn put_object(&self) -> PutObject {
-        self.inner.put_object().bucket(&self.bucket)
+    pub async fn upload(&self, key: &str, data: &[u8], content_type: &str) -> Result<()> {
+        retry(|| self._upload(key, data, content_type)).await
+    }
+
+    async fn _upload(&self, key: &str, data: &[u8], content_type: &str) -> Result<()> {
+        // S3 has a minimum multipart upload size of 5 MB. If we are below that, we need to use
+        // PutObject.
+        if data.len() < CHUNK_SIZE {
+            self.inner
+                .put_object()
+                .bucket(&self.bucket)
+                .key(key)
+                .body(data.to_vec().into())
+                .content_type(content_type)
+                .send()
+                .await?;
+            return Ok(());
+        }
+
+        let res = self
+            .inner
+            .create_multipart_upload()
+            .bucket(&self.bucket)
+            .key(key)
+            .content_type(content_type)
+            .send()
+            .await?;
+        let upload_id = res.upload_id().unwrap();
+        let mut parts = Vec::new();
+        for (part_number, chunk) in data.chunks(CHUNK_SIZE).enumerate() {
+            // part numbers must start at 1
+            let part_number = part_number as i32 + 1;
+            let upload_part_res = self
+                .inner
+                .upload_part()
+                .key(key)
+                .bucket(&self.bucket)
+                .upload_id(upload_id)
+                .body(chunk.to_vec().into())
+                .part_number(part_number)
+                .send()
+                .await?;
+            parts.push(
+                CompletedPart::builder()
+                    .e_tag(upload_part_res.e_tag.unwrap_or_default())
+                    .part_number(part_number)
+                    .build(),
+            )
+        }
+        let completed_multipart_upload = CompletedMultipartUpload::builder()
+            .set_parts(Some(parts))
+            .build();
+        self.inner
+            .complete_multipart_upload()
+            .bucket(&self.bucket)
+            .key(key)
+            .multipart_upload(completed_multipart_upload)
+            .upload_id(upload_id)
+            .send()
+            .await?;
+
+        Ok(())
     }
 
     pub async fn upload_raw(&self, krate: &Crate, data: Vec<u8>) -> Result<()> {
-        retry(|| {
-            self.put_object()
-                .key(self.tool.raw_crate_path(krate))
-                .body(data.clone().into())
-                .content_type("text/plain")
-                .send()
-        })
-        .await?;
-        Ok(())
+        self.upload(&self.tool.raw_crate_path(krate), &data, "text/plain")
+            .await
     }
 
     pub async fn download_raw(&self, krate: &Crate) -> Result<Vec<u8>> {
@@ -69,17 +123,8 @@ impl Client {
     }
 
     pub async fn upload_html(&self, krate: &Crate, data: Vec<u8>) -> Result<()> {
-        retry(move || {
-            self.inner
-                .put_object()
-                .bucket(&self.bucket)
-                .key(self.tool.rendered_crate_path(krate))
-                .body(data.clone().into())
-                .content_type("text/html")
-                .send()
-        })
-        .await?;
-        Ok(())
+        let key = self.tool.rendered_crate_path(krate);
+        retry(|| self.upload(&key, &data, "text/html")).await
     }
 
     pub async fn get_crate_downloads(&self) -> Result<HashMap<String, Option<u64>>> {
@@ -174,17 +219,8 @@ impl Client {
     }
 
     pub async fn upload_landing_page(&self, data: Vec<u8>) -> Result<()> {
-        retry(move || {
-            self.inner
-                .put_object()
-                .bucket(&self.bucket)
-                .key(self.tool.landing_page_path())
-                .body(data.clone().into())
-                .content_type("text/html")
-                .send()
-        })
-        .await?;
-        Ok(())
+        self.upload(self.tool.landing_page_path(), &data, "text/html")
+            .await
     }
 
     pub async fn list_db(&self) -> Result<Option<Object>> {
