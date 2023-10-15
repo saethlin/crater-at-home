@@ -6,7 +6,8 @@ RUN apt-get update && apt-get install -y curl build-essential && \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     sh -s -- --default-toolchain=nightly --component=miri --component=rust-src --profile=minimal -y && \
     cargo install --git https://github.com/saethlin/miri-tools cargo-download inapty get-args && \
-    cargo install cargo-nextest cargo-careful --locked && \
+    cargo install cargo-nextest --locked && \
+    cargo install --git https://github.com/RalfJung/cargo-careful --rev 7fa90c6 cargo-careful && \
     rm -rf /var/lib/apt/lists/*
 
 COPY nextest.toml /root/.cargo/nextest.toml
