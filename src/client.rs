@@ -219,7 +219,7 @@ impl Client {
     }
 
     pub async fn upload_landing_page(&self, data: Vec<u8>) -> Result<()> {
-        self.upload(&self.tool.landing_page_path(), &data, "text/html")
+        self.upload(self.tool.landing_page_path(), &data, "text/html")
             .await
     }
 
