@@ -14,8 +14,8 @@ COPY run.sh /root/run.sh
 
 RUN mkdir /build && \
     rm -rf /root/.cache && \
-    echo "cfg-if==1.0.0" | TOOL=miri TEST_END_DELIMITER="-" bash /root/run.sh && \
-    echo "cfg-if==1.0.0" | TOOL=asan TEST_END_DELIMITER="-" bash /root/run.sh && \
+    echo "cfg-if@1.0.0" | TOOL=miri TEST_END_DELIMITER="-" bash /root/run.sh && \
+    echo "cfg-if@1.0.0" | TOOL=asan TEST_END_DELIMITER="-" bash /root/run.sh && \
     tar czvf /cache.tar.gz /root/.cache && \
     rm -rf /root/.cache /build
 
