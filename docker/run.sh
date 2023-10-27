@@ -31,7 +31,7 @@ elif [[ $TOOL == "asan" ]]; then
     export ASAN_OPTIONS="color=always:detect_leaks=0:detect_stack_use_after_return=true:allocator_may_return_null=1:detect_invalid_pointer_pairs=2"
 elif [[ $TOOL == "miri" ]]; then
     export RUSTFLAGS="$RUSTFLAGS -Zrandomize-layout -Cdebuginfo=0"
-    export MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-ignore-leaks"
+    export MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-num-cpus=64"
     export MIRI_BACKTRACE=1
 fi
 export RUSTDOCFLAGS=$RUSTFLAGS
