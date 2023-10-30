@@ -1,5 +1,6 @@
 use crate::{Crate, Status, Tool, Version};
 use aws_sdk_s3::model::{CompletedMultipartUpload, CompletedPart, Object};
+use aws_smithy_types_convert::date_time::DateTimeExt;
 use backoff::Error;
 use backoff::ExponentialBackoff;
 use color_eyre::Result;
@@ -164,7 +165,8 @@ impl Client {
         Ok(crates)
     }
 
-    pub async fn list_finished_crates(&self) -> Result<Vec<Crate>> {
+    pub async fn list_finished_crates(&self, dur: Option<time::Duration>) -> Result<Vec<Crate>> {
+        let now = time::OffsetDateTime::now_utc();
         let prefix = format!("{}/", self.tool.raw_path());
         let mut res = self
             .inner
@@ -177,6 +179,15 @@ impl Client {
         while let Some(res) = res.next().await {
             let page = res?;
             for obj in page.contents().unwrap_or_default() {
+                if let Some(dur) = dur {
+                    if let Some(modified) = obj.last_modified() {
+                        let modified = modified.to_time().unwrap();
+                        // Ignore crates older than dur
+                        if now - modified > dur {
+                            continue;
+                        }
+                    }
+                }
                 if let Some(key) = obj.key().and_then(|key| key.strip_prefix(&prefix)) {
                     let mut it = key.split('/');
                     let Some(name) = it.next() else {

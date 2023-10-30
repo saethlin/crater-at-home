@@ -71,7 +71,8 @@ pub async fn run(args: Args) -> Result<()> {
     crates.sort_by(|crate_a, crate_b| {
         let a = name_to_downloads.get(&crate_a.name).cloned().flatten();
         let b = name_to_downloads.get(&crate_b.name).cloned().flatten();
-        b.cmp(&a) //.then_with(|| crate_a.version.cmp(&crate_b.version))
+        b.cmp(&a)
+            .then_with(|| crate_b.version.cmp(&crate_a.version))
     });
     // Since we sored by version we can dedup by name and be left with only
     // the most recent version of each crate.
@@ -90,7 +91,7 @@ pub async fn run(args: Args) -> Result<()> {
 }
 
 async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
-    let all = client.list_finished_crates().await?;
+    let all = client.list_finished_crates(None).await?;
     log::info!("Re-rendering HTML for {} crates", all.len());
     let mut tasks = JoinSet::new();
     let limit = Arc::new(Semaphore::new(256));

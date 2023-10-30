@@ -95,7 +95,9 @@ pub async fn run(args: Args) -> Result<()> {
     let client = Arc::new(Client::new(args.tool, &args.bucket).await?);
     let mut crates = build_crate_list(&args, &client).await?;
     if !args.rerun {
-        let finished_crates = client.list_finished_crates().await?;
+        let finished_crates = client
+            .list_finished_crates(Some(time::Duration::days(7)))
+            .await?;
         crates.retain(|krate| {
             !finished_crates
                 .iter()
