@@ -131,8 +131,10 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
             kind = "unaligned reference".to_string();
         } else if line.contains("incorrect layout on deallocation") {
             kind = "incorrect layout on deallocation".to_string();
-        } else if line.contains("deallocating while") && line.contains("is protected") {
+        } else if line.contains("deallocating while") && line.contains("is strongly protected") {
             kind = "deallocation conflict with dereferenceable".to_string();
+        } else if line.contains("which is strongly protected because it is an argument of call") {
+            kind = "protector invalidation".to_string();
         } else if line.contains("attempting a write access")
             && line.contains("only grants SharedReadOnly")
         {
@@ -146,11 +148,6 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
             } else {
                 kind = diagnose_sb(&lines[l..end]);
             }
-        } else if line.contains("type validation failed")
-            && line.contains("encountered pointer")
-            && line.contains("expected initialized plain (non-pointer) bytes")
-        {
-            kind = "ptr-int transmute".to_string();
         } else if line.contains("type validation failed") {
             let second = line.split(": encountered").nth(1).unwrap().trim();
             kind = format!("type validation failed: encountered {}", second);
