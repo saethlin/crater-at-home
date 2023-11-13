@@ -16,6 +16,9 @@ use uuid::Uuid;
 
 static TEST_END_DELIMITER: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 
+// These crates generate gigabytes of output then don't build.
+const IGNORED_CRATES: &[&str] = &["clacks_mtproto", "stdweb"];
+
 #[derive(Parser, Clone)]
 pub struct Args {
     /// Run the top `n` most-recently-downloaded crates
@@ -96,7 +99,7 @@ pub async fn run(args: Args) -> Result<()> {
     let mut crates = build_crate_list(&args, &client).await?;
     if !args.rerun {
         let finished_crates = client
-            .list_finished_crates(Some(time::Duration::days(7)))
+            .list_finished_crates(Some(time::Duration::days(30)))
             .await?;
         crates.retain(|krate| {
             !finished_crates
@@ -128,6 +131,10 @@ pub async fn run(args: Args) -> Result<()> {
                     None => break,
                     Some(krate) => krate,
                 };
+
+                if IGNORED_CRATES.contains(&&krate.name[..]) {
+                    continue;
+                }
 
                 log::info!("Running {} {}", krate.name, krate.version);
 
