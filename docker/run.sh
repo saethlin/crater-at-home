@@ -21,7 +21,7 @@ if [[ $HOST == "x86_64-unknown-linux-gnu" ]]; then
 fi
 
 if [[ $TOOL == "build" ]]; then
-    export RUSTFLAGS="$RUSTFLAGS -Zmir-opt-level=4 -Zinline-mir -Cdebuginfo=2 -Cdebug-assertions=yes"
+    export RUSTFLAGS="-Zvalidate-mir -Zmir-opt-level=4 -Zinline-mir -Cdebuginfo=2 -Cdebug-assertions=yes -Copt-level=3 -Zcross-crate-inline-threshold=always -Zthreads=64 -Zinline-mir-hint-threshold=10000 -Zinline-mir-threshold=10000"
 elif [[ $TOOL == "asan" ]]; then
     # Use 1 GB for a default stack size.
     # We really want to only run out of stack in true infinite recursion.
