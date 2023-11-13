@@ -28,7 +28,7 @@ pub fn diagnose(krate: &mut Crate, output: &[u8]) -> Result<()> {
     } else if output.contains("SIGILL: illegal instruction") {
         Status::UB {
             cause: vec![Cause {
-                kind: "SIGILL debug assertion".to_string(),
+                kind: "SIGILL".to_string(),
                 source_crate: None,
             }],
         }
