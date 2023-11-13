@@ -53,7 +53,7 @@ function run_asan {
 }
 
 function run_miri {
-    timed test --no-run $ARGS &> /dev/null
+    timed miri test --no-run $ARGS &> /dev/null
     # rustdoc is already passed --color=always, so adding it to the global MIRIFLAGS is just an error
     MIRIFLAGS="$MIRIFLAGS --color=always" timed miri nextest run --color=always --no-fail-fast --config-file=/root/.cargo/nextest.toml $ARGS
     # nextest runs one interpreter per test, so unsupported errors only terminate the test not the whole suite.
