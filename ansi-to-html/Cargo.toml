@@ -7,3 +7,9 @@ edition = "2021"
 env_logger = { version = "0.10.0", default-features = false }
 log = "0.4.17"
 vte = "0.11.0"
+
+[profile.release]
+debug = 1
+lto = "fat"
+panic = "abort"
+codegen-units = 1

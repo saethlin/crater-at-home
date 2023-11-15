@@ -1,8 +1,9 @@
 use crate::ansi::{Color, C0};
 use crate::renderer::Renderer;
+use std::io::Write;
 use vte::{Params, ParamsIter, Perform};
 
-impl Perform for Renderer {
+impl<W: Write> Perform for Renderer<W> {
     fn print(&mut self, c: char) {
         self.print(c);
     }
@@ -170,6 +171,7 @@ impl Perform for Renderer {
     }
 }
 
+#[inline]
 fn parse_color(it: &mut ParamsIter) -> Option<Color> {
     match it.next() {
         Some(&[5]) => {
