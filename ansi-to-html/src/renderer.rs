@@ -65,10 +65,10 @@ impl Row {
     }
 
     fn clear(&mut self) {
+        self.cells.truncate(Row::LEN);
         for c in &mut self.cells {
             *c = Cell::default();
         }
-        self.cells.truncate(Row::LEN);
         self.position = 0;
     }
 
@@ -82,7 +82,6 @@ impl Row {
         self.position = position;
     }
 
-    // FIXME: This misbehaves if the position is off in space
     #[inline]
     fn print(&mut self, cell: Cell) {
         if let Some(current) = self.cells.get_mut(self.position) {
@@ -102,7 +101,7 @@ impl Row {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Cell {
-    text: char, // TODO: totally wrong, graphmeme clusters
+    text: char, // FIXME: totally wrong, graphmeme clusters
     foreground: Color,
     background: Color,
     bold: bool,
@@ -218,15 +217,13 @@ impl<W: Write> Renderer<W> {
         }
     }
 
-    pub fn handle_move(&mut self, _row: u16, _col: u16) {
-        /*
-        self.current_row = row as usize;
-        while self.current_row >= self.rows.len() {
-            self.rows.push(Row::new());
+    pub fn handle_move(&mut self, row: u16, col: u16) {
+        if row <= self.current_row as u16 {
+            self.move_up_by(self.current_row as u16 - row)
+        } else {
+            self.move_down_by(row - self.current_row as u16);
         }
         self.set_column(col);
-        */
-        todo!()
     }
 
     pub fn move_up_by(&mut self, cells: u16) {
