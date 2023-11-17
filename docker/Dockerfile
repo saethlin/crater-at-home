@@ -15,8 +15,10 @@ COPY run.sh /root/run.sh
 
 RUN mkdir /build && \
     rm -rf /root/.cache && \
-    echo "cfg-if@1.0.0" | TOOL=miri TEST_END_DELIMITER="-" bash /root/run.sh && \
-    echo "cfg-if@1.0.0" | TOOL=asan TEST_END_DELIMITER="-" bash /root/run.sh && \
+    for target in x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu; do \
+        echo "cfg-if@1.0.0" | TOOL=miri TARGET=$target TEST_END_DELIMITER="-" bash /root/run.sh; \
+    done && \
+    echo "cfg-if@1.0.0" | TOOL=asan TARGET=$(rustc -vV | grep host | cut -d' ' -f2) TEST_END_DELIMITER="-" bash /root/run.sh && \
     tar czvf /cache.tar.gz /root/.cache && \
     rm -rf /root/.cache /build
 

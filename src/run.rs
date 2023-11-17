@@ -46,6 +46,13 @@ pub struct Args {
 
     #[clap(long)]
     rev: bool,
+
+    #[clap(
+        long,
+        default_value = "x86_64-unknown-linux-gnu",
+        value_parser = clap::builder::PossibleValuesParser::new(["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"])
+    )]
+    target: String,
 }
 
 async fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
@@ -212,6 +219,7 @@ fn spawn_worker(args: &Args, cpu: usize) -> tokio::process::Child {
         "--tmpfs=/root/.cache:exec",
         &format!("--env=TEST_END_DELIMITER={}", *TEST_END_DELIMITER),
         &format!("--env=TOOL={}", args.tool),
+        &format!("--env=TARGET={}", args.target),
     ]);
     cmd.args([
         // Enforce the memory limit
