@@ -244,7 +244,7 @@ impl Client {
                 .send()
         })
         .await?;
-        let meta = res.contents.and_then(|c| c.get(0).cloned());
+        let meta = res.contents.and_then(|c| c.first().cloned());
         Ok(meta)
     }
 }
