@@ -22,4 +22,4 @@ RUN mkdir /build && \
     tar czvf /cache.tar.gz /root/.cache && \
     rm -rf /root/.cache /build
 
-ENTRYPOINT ["bash", "/root/run.sh"]
+ENTRYPOINT ["/usr/bin/nice", "-n19", "bash", "/root/run.sh"]
