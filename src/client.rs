@@ -125,7 +125,7 @@ impl Client {
 
     pub async fn upload_html(&self, krate: &Crate, data: Vec<u8>) -> Result<()> {
         let key = self.tool.rendered_crate_path(krate);
-        retry(|| self.upload(&key, &data, "text/html")).await
+        retry(|| self.upload(&key, &data, "text/html;charset=utf-8")).await
     }
 
     pub async fn get_crate_downloads(&self) -> Result<HashMap<String, Option<u64>>> {
@@ -230,8 +230,12 @@ impl Client {
     }
 
     pub async fn upload_landing_page(&self, data: Vec<u8>) -> Result<()> {
-        self.upload(self.tool.landing_page_path(), &data, "text/html")
-            .await
+        self.upload(
+            self.tool.landing_page_path(),
+            &data,
+            "text/html;charset=utf-8",
+        )
+        .await
     }
 
     pub async fn list_db(&self) -> Result<Option<Object>> {

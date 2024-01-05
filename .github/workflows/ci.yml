@@ -44,7 +44,7 @@ jobs:
           echo "::endgroup"
           htmlpty bash ci.sh ${{ matrix.suite }} 2> output.html
           FAILED=$?
-          aws s3 cp output.html s3://miri-bot-dev/${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${{ matrix.suite }}.html
+          aws s3 cp --content-type "text/html;charset=utf-8" output.html s3://miri-bot-dev/${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${{ matrix.suite }}.html
           LOG_URL=https://miri-bot-dev.s3.amazonaws.com/${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${{ matrix.suite }}.html
           if [ $FAILED -ne 0 ]
           then
