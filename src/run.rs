@@ -106,7 +106,7 @@ pub async fn run(args: Args) -> Result<()> {
     let mut crates = build_crate_list(&args, &client).await?;
     if !args.rerun {
         let finished_crates = client
-            .list_finished_crates(Some(time::Duration::days(30)))
+            .list_finished_crates(Some(time::Duration::days(90)))
             .await?;
         crates.retain(|krate| {
             !finished_crates

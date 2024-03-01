@@ -106,11 +106,12 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
     for krate in all {
         let limit = Arc::clone(&limit);
         let client = Arc::clone(&client);
-        let all_raw = Arc::clone(&all_raw);
-        let all_rendered = Arc::clone(&all_rendered);
+        //let all_raw = Arc::clone(&all_raw);
+        //let all_rendered = Arc::clone(&all_rendered);
         let permit = limit.acquire_owned().await.unwrap();
         tasks.spawn(async move {
             let raw = client.download_raw(&krate).await?;
+            /*
             let mut header = tar::Header::new_gnu();
             if header
                 .set_path(format!("raw/{}/{}", krate.name, krate.version))
@@ -121,8 +122,10 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
                 header.set_cksum();
                 all_raw.lock().await.append(&header, &*raw).unwrap();
             }
+            */
 
             let rendered = render::render_crate(&krate, &raw);
+            /*
             let mut header = tar::Header::new_gnu();
             if header
                 .set_path(format!("html/{}/{}", krate.name, krate.version))
@@ -137,8 +140,13 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
                     .append(&header, rendered.as_bytes())
                     .unwrap();
             }
+            */
 
-            client.upload_html(&krate, rendered.into_bytes()).await?;
+            let previous = client.download_html(&krate).await?;
+            if previous != rendered.as_bytes() {
+                log::info!("Uploading {}@{}", krate.name, krate.version);
+                client.upload_html(&krate, rendered.into_bytes()).await?;
+            }
             // Ensure the permit is released once we are done with the client
             drop(permit);
             let mut krate = krate;
