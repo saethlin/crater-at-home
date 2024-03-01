@@ -102,30 +102,33 @@ impl Client {
             .await
     }
 
-    pub async fn download_raw(&self, krate: &Crate) -> Result<Vec<u8>> {
-        retry(|| self._download_raw(krate)).await
+    pub async fn upload_html(&self, krate: &Crate, data: Vec<u8>) -> Result<()> {
+        let key = self.tool.rendered_crate_path(krate);
+        self.upload(&key, &data, "text/html;charset=utf-8").await
     }
 
-    async fn _download_raw(&self, krate: &Crate) -> Result<Vec<u8>> {
+    pub async fn download_raw(&self, krate: &Crate) -> Result<Vec<u8>> {
+        self.download(&self.tool.raw_crate_path(krate)).await
+    }
+
+    pub async fn download_html(&self, krate: &Crate) -> Result<Vec<u8>> {
+        self.download(&self.tool.rendered_crate_path(krate)).await
+    }
+
+    async fn download(&self, key: &str) -> Result<Vec<u8>> {
+        retry(|| self._download(key)).await
+    }
+
+    async fn _download(&self, key: &str) -> Result<Vec<u8>> {
         let response = self
             .inner
             .get_object()
             .bucket(&self.bucket)
-            .key(format!(
-                "{}/{}/{}",
-                self.tool.raw_path(),
-                krate.name,
-                krate.version
-            ))
+            .key(key)
             .send()
             .await?;
         let bytes = response.body.collect().await?;
         Ok(bytes.to_vec())
-    }
-
-    pub async fn upload_html(&self, krate: &Crate, data: Vec<u8>) -> Result<()> {
-        let key = self.tool.rendered_crate_path(krate);
-        retry(|| self.upload(&key, &data, "text/html;charset=utf-8")).await
     }
 
     pub async fn get_crate_downloads(&self) -> Result<HashMap<String, Option<u64>>> {
