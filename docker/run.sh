@@ -87,4 +87,6 @@ do
         fi
     fi
     echo "-${TEST_END_DELIMITER}-"
+    # Delete everything in our writable mount points
+    find /build /tmp /root/.cargo/registry -mindepth 1 -delete
 done < /dev/stdin
