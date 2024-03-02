@@ -23,5 +23,5 @@ then
 else
     group cargo build
     group cargo run -- sync --tool="$1" --bucket=miri-bot-dev
-    group cargo run -- run --tool="$1" --bucket=miri-bot-dev --crate-list=ci-crates --rerun
+    group cargo run -- run --tool="$1" --bucket=miri-bot-dev --crates=10
 fi
