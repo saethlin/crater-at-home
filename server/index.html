@@ -1,0 +1,34 @@
+<!DOCTYPE HTML>
+<html><head><style>
+body {
+    background: #111;
+    color: #eee;
+    font-family: sans-serif;
+    font-size: 20px;
+}
+input {
+    background: #111;
+    color: #eee;
+    font-family: monospace;
+    font-size: 20px;
+}
+</style></head><body onload="init()">
+<script>
+function init() {
+    let searchbar = document.getElementById("search");
+    searchbar.focus();
+    searchbar.addEventListener("change", (event) => {
+        let crate = event.target.value;
+        let url = window.location.href;
+        let base = url.slice(0, url.lastIndexOf('/'));
+        window.location.href = base + "/?" + crate
+    });
+}
+</script>
+<p>Hello! This website hosts a library of logs, displayed as if you have just run <span style="font-family:monospace; font-size: 19px; background-color:#333;">cargo miri test</span> on every published crate on crates.io.
+<p>Try searching for a crate below, if one is found you will be redirected to the build output for its most recently published version. For crates where Miri detects UB, the page will be automatically scrolled to the first UB report.
+<div style="text-align: center">
+<input id="search" style="width: 80%; height: 100%; margin: 0 auto;"></input>
+<p><span id=search-result style="font-family:monospace; font-size: 19px;"></span>
+</div>
+</body></html>

@@ -1,6 +1,7 @@
 use crate::ansi::Color;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 
 pub struct Renderer {
     pub name: String,
@@ -11,7 +12,7 @@ pub struct Renderer {
     pub foreground: Color,
     pub background: Color,
     current_row: usize,
-    rows: Vec<Row>,
+    rows: VecDeque<Row>,
     styles: Styles,
 }
 
@@ -112,7 +113,7 @@ impl Renderer {
             foreground: Color::bright_white(),
             background: Color::black(),
             current_row: 0,
-            rows: vec![Row::new()],
+            rows: vec![Row::new()].into(),
             styles: Styles::default(),
         }
     }
@@ -152,7 +153,7 @@ impl Renderer {
     pub fn linefeed(&mut self) {
         self.current_row += 1;
         if self.current_row == self.rows.len() {
-            self.rows.push(Row::new());
+            self.rows.push_back(Row::new());
         }
     }
 
@@ -185,7 +186,7 @@ impl Renderer {
     pub fn handle_move(&mut self, row: u16, col: u16) {
         self.current_row = row as usize;
         while self.current_row >= self.rows.len() {
-            self.rows.push(Row::new());
+            self.rows.push_back(Row::new());
         }
         self.set_column(col);
     }
@@ -197,7 +198,7 @@ impl Renderer {
     pub fn move_down_by(&mut self, cells: u16) {
         self.current_row += cells as usize;
         while self.current_row >= self.rows.len() {
-            self.rows.push(Row::new());
+            self.rows.push_back(Row::new());
         }
     }
 
@@ -219,7 +220,18 @@ impl Renderer {
         let _ = &row.cells[..row.position];
     }
 
-    pub fn emit_html<W: std::io::Write>(&self, mut out: W) -> std::io::Result<()> {
+    pub fn pop_completed_row(&mut self) -> Option<Vec<u8>> {
+        if self.rows.len() > 64 {
+            self.remove_oldest_row()
+        } else {
+            None
+        }
+    }
+
+    pub fn remove_oldest_row(&mut self) -> Option<Vec<u8>> {
+        use std::io::Write;
+        let mut out = Vec::new();
+
         let mut prev = Cell {
             text: ' ',
             foreground: Color::bright_white(),
@@ -230,32 +242,36 @@ impl Renderer {
             dim: false,
         };
 
-        out.write_all(b"<span>")?;
+        out.extend(b"<span>");
 
-        for row in &self.rows[..self.current_row] {
-            let row = &*row;
-            for cell in &row.cells {
-                // Terminal applications will often reset the style right after some formatted text
-                // then write some whitespace then set it to something again.
-                // So we only apply style changes if the cell is nonempty. This is a ~50% savings
-                // in emitted HTML.
-                if cell.text != ' ' {
-                    if cell.bold != prev.bold || cell.foreground != prev.foreground {
-                        self.styles.with(cell.foreground, cell.bold, |class| {
+        let row = self.rows.pop_front()?;
+        self.current_row = self.current_row.saturating_sub(1);
+
+        for cell in &row.cells {
+            // Terminal applications will often reset the style right after some formatted text
+            // then write some whitespace then set it to something again.
+            // So we only apply style changes if the cell is nonempty. This is a ~50% savings
+            // in emitted HTML.
+            if cell.text != ' ' {
+                if cell.bold != prev.bold || cell.foreground != prev.foreground {
+                    self.styles
+                        .with(cell.foreground, cell.bold, |class| {
                             write!(out, "</span><span class='{}'>", class)
-                        })?;
-                    }
-                    prev = cell.clone();
+                        })
+                        .unwrap();
                 }
-                match cell.text {
-                    '<' => out.write_all(b"&lt")?,
-                    '>' => out.write_all(b"&gt")?,
-                    c => write!(out, "{}", c)?,
-                }
+                prev = cell.clone();
             }
-            out.write_all(&[b'\n'])?;
+            match cell.text {
+                '<' => out.extend(b"&lt"),
+                '>' => out.extend(b"&gt"),
+                c => write!(out, "{}", c).unwrap(),
+            }
         }
-        out.write_all(b"</span>")
+        out.extend(&[b'\n']);
+        out.extend(b"</span>");
+
+        Some(out)
     }
 
     pub fn emit_css<W: std::io::Write>(&self, mut out: W) -> std::io::Result<()> {
@@ -271,12 +287,4 @@ impl Renderer {
 
         Ok(())
     }
-
-    /*
-    pub fn clear(&mut self) {
-        self.rows.clear();
-        self.rows.push(Row::new());
-        self.current_row = 0;
-    }
-    */
 }

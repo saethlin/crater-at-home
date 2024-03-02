@@ -1,0 +1,21 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { version = "1.0.80", features = ["backtrace"] }
+bytes = "1.5.0"
+http-body-util = "0.1.0"
+hyper = { version = "1.2.0", features = ["server", "http1"] }
+pin-project-lite = "0.2.13"
+tokio = { version = "1.36.0", features = ["full"] }
+ansi-to-html = { path = "../ansi-to-html" }
+log = "0.4.21"
+env_logger = "0.11.2"
+semver = "1.0.22"
+xz2 = "0.1.7"
+flate2 = "1.0.28"
+
+[profile.release]
+debug = 1
