@@ -1,6 +1,6 @@
 use crate::{Crate, Status};
-use color_eyre::eyre::Result;
 use std::fmt::Write;
+use anyhow::Result;
 
 #[rustfmt::skip]
 macro_rules! log_format {
@@ -196,11 +196,11 @@ Click on a crate to the right to display its build log
 <div class="crates" onclick=crate_click()>
 "#;
 
-pub fn render_ub(crates: &[Crate]) -> Result<String> {
+pub fn render_ub(crates: &[(Crate, Status)]) -> Result<String> {
     let mut output = String::new();
     writeln!(output, "{}", OUTPUT_HEADER)?;
-    for c in crates {
-        if let Status::UB { cause: causes, .. } = &c.status {
+    for (c, status) in crates {
+        if let Status::UB { cause: causes, .. } = &status {
             write!(output, "<div class=\"row\">{} {}<br>", c.name, c.version,)?;
             for cause in causes {
                 write!(output, "{}", cause.kind)?;

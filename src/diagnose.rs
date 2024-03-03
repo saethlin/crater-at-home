@@ -1,17 +1,15 @@
-use crate::{Cause, Crate, Status};
-
-use color_eyre::Result;
+use crate::{Cause, Status};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
 static ANSI_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new("\x1b(\\[[0-9;?]*[A-HJKSTfhilmnsu]|\\(B)").unwrap());
 
-pub fn diagnose(krate: &mut Crate, output: &[u8]) -> Result<()> {
+pub fn diagnose(output: &[u8]) -> Status {
     let output = String::from_utf8_lossy(output);
     let output = ANSI_REGEX.replace_all(&output, "").to_string();
     // Strip ANSI escape codes from the output;
-    krate.status = if output.contains("Undefined Behavior: ") {
+    if output.contains("Undefined Behavior: ") {
         Status::UB {
             cause: diagnose_output(&output),
         }
@@ -46,16 +44,9 @@ pub fn diagnose(krate: &mut Crate, output: &[u8]) -> Result<()> {
                 source_crate: None,
             }],
         }
-    } else if output.contains("Command exited with non-zero status 124") {
-        Status::Error("Timeout".to_string())
-    } else if output.contains("Command exited with non-zero status 255") {
-        Status::Error("OOM".to_string())
-    } else if output.contains("Command exited with non-zero status") {
-        Status::Error(String::new())
     } else {
         Status::Passing
-    };
-    Ok(())
+    }
 }
 
 fn diagnose_asan(output: &str) -> Vec<Cause> {

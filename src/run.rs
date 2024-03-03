@@ -1,6 +1,6 @@
 use crate::{client::Client, render, Crate, Tool, Version};
 use clap::Parser;
-use color_eyre::eyre::Result;
+use anyhow::{ensure, Result};
 use once_cell::sync::Lazy;
 use std::{
     collections::HashMap,
@@ -99,7 +99,7 @@ pub async fn run(args: Args) -> Result<()> {
     let status = std::process::Command::new("docker")
         .args(["build", "-t", "crater-at-home", "-f", dockerfile, "docker/"])
         .status()?;
-    color_eyre::eyre::ensure!(status.success(), "docker image build failed!");
+    ensure!(status.success(), "docker image build failed!");
 
     log::info!("Figuring out what crates have a build log already");
     let client = Arc::new(Client::new(args.tool, &args.bucket).await?);

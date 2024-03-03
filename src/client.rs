@@ -1,9 +1,9 @@
-use crate::{Crate, Status, Tool, Version};
+use crate::{Crate, Tool, Version};
 use aws_sdk_s3::model::{CompletedMultipartUpload, CompletedPart, Object};
 use aws_smithy_types_convert::date_time::DateTimeExt;
 use backoff::Error;
 use backoff::ExponentialBackoff;
-use color_eyre::Result;
+use anyhow::Result;
 use futures_util::StreamExt;
 use futures_util::TryFutureExt;
 use std::collections::HashMap;
@@ -27,10 +27,6 @@ impl Client {
             bucket: bucket.to_string(),
             tool,
         })
-    }
-
-    pub fn tool(&self) -> Tool {
-        self.tool
     }
 
     pub async fn upload(&self, key: &str, data: &[u8], content_type: &str) -> Result<()> {
@@ -111,10 +107,6 @@ impl Client {
         self.download(&self.tool.raw_crate_path(krate)).await
     }
 
-    pub async fn download_html(&self, krate: &Crate) -> Result<Vec<u8>> {
-        self.download(&self.tool.rendered_crate_path(krate)).await
-    }
-
     async fn download(&self, key: &str) -> Result<Vec<u8>> {
         retry(|| self._download(key)).await
     }
@@ -161,7 +153,6 @@ impl Client {
             .map(|krate| Crate {
                 name: krate.0,
                 version: Version::parse(&krate.1),
-                status: Status::Unknown,
                 recent_downloads: None,
             })
             .collect();
@@ -202,7 +193,6 @@ impl Client {
                     files.push(Crate {
                         name: name.to_string(),
                         version: Version::parse(version),
-                        status: Status::Unknown,
                         recent_downloads: None,
                     });
                 }

@@ -1,5 +1,5 @@
 use clap::Parser;
-use color_eyre::Result;
+use anyhow::Result;
 use diagnose::diagnose;
 use std::{fmt, str::FromStr};
 
@@ -30,7 +30,6 @@ fn main() -> Result<()> {
         std::env::set_var("RUST_LOG", "info");
     }
     env_logger::init();
-    color_eyre::install()?;
 
     let args = Cli::parse();
     match args.command {
@@ -115,7 +114,6 @@ pub struct Crate {
     pub name: String,
     pub version: Version,
     pub recent_downloads: Option<u64>,
-    pub status: Status,
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Debug)]
