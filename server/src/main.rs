@@ -47,7 +47,9 @@ async fn echo(req: Request<Incoming>) -> Result<Response<BodyKind>> {
                 error_response()
             }
         }
-        ["ub"] => Response::new(BodyKind::Static("under construction")),
+        ["ub"] => {
+        }
+        Response::new(BodyKind::Static("under construction")),
         [] => {
             if let Some(krate) = req.uri().query() {
                 let path = format!("{root}/{tool}/raw/{krate}");
@@ -88,7 +90,7 @@ async fn echo(req: Request<Incoming>) -> Result<Response<BodyKind>> {
     };
     response
         .headers_mut()
-        .insert("Content-Type", HeaderValue::from_static("text/html"));
+        .insert("Content-Type", HeaderValue::from_static("text/html;charset=utf-8"));
     Ok(response)
 }
 
@@ -123,6 +125,7 @@ async fn main() -> Result<()> {
 
 enum BodyKind {
     Static(&'static str),
+    Streamed(BufReader<File>),
     Rendered(Handle<BufReader<File>>),
 }
 
@@ -155,8 +158,8 @@ impl hyper::body::Body for BodyKind {
             }
             BodyKind::Rendered(h) => {
                 let mut chunk: [u8; 4096] = [0u8; 4096];
-                if h.read_exact(&mut chunk).is_ok() {
-                    let chunk = Bytes::copy_from_slice(&chunk);
+                if let Ok(n) = h.read(&mut chunk) {
+                    let chunk = Bytes::copy_from_slice(&chunk[..n]);
                     Poll::Ready(Some(Ok(Frame::data(chunk))))
                 } else {
                     Poll::Ready(None)
@@ -175,7 +178,7 @@ impl hyper::body::Body for BodyKind {
     fn size_hint(&self) -> SizeHint {
         match self {
             BodyKind::Static(s) => SizeHint::with_exact(s.len() as u64),
-            BodyKind::Rendered(_) => SizeHint::default(),
+            BodyKind::Streamed(_) | BodyKind::Rendered(_) => SizeHint::default(),
         }
     }
 }

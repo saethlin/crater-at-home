@@ -1,6 +1,6 @@
 use crate::{Crate, Status};
-use std::fmt::Write;
 use anyhow::Result;
+use std::fmt::Write;
 
 #[rustfmt::skip]
 macro_rules! log_format {
@@ -36,6 +36,7 @@ function scroll_to_ub() {{
     }
 }
 
+#[allow(unused)] // FIXME: Need to add the scroll-to-ub back to the server
 pub fn render_crate(krate: &Crate, output: &[u8]) -> String {
     let (css, mut encoded) =
         ansi_to_html::render(format!("{}/{}", krate.name, krate.version), output);
@@ -217,69 +218,3 @@ pub fn render_ub(crates: &[(Crate, Status)]) -> Result<String> {
 
     Ok(output)
 }
-
-pub const LANDING_PAGE: &str = r#"<!DOCTYPE HTML>
-<html><head><style>
-body {
-    background: #111;
-    color: #eee;
-    font-family: sans-serif;
-    font-size: 20px;
-    visibility: hidden;
-}
-input {
-    background: #111;
-    color: #eee;
-    font-family: monospace;
-    font-size: 20px;
-}
-</style></head><body onload="init()">
-<script>
-function init() {
-    let crate = window.location.search.substr(1);
-    let version = all[crate];
-    if (version != undefined) {
-        move_to(crate, version);
-        return;
-    }
-    document.getElementsByTagName("body")[0].style.visibility = "visible";
-
-    document.getElementById("search").focus();
-    document.getElementById("search").addEventListener("change", (event) => {
-        let crate = event.target.value;
-        let version = all[crate];
-        if (version != undefined) {
-            move_to(crate, version);
-        }
-    });
-
-    var params = decode_params();
-    if (params.crate != undefined && params.version != undefined) {
-        move_to(params.crate, params.version);
-    }
-}
-function move_to(crate, version) {
-    let url = window.location.href;
-    let base = url.slice(0, url.lastIndexOf('/'));
-    window.location.href = base + "/logs/" + crate + "/" + encodeURIComponent(version)
-}
-function decode_params() {
-    var params = {};
-    var paramsarr = window.location.search.substr(1).split('&');
-    for (var i = 0; i < paramsarr.length; ++i) {
-        var tmp = paramsarr[i].split("=");
-        if (!tmp[0] || !tmp[1]) continue;
-        params[tmp[0]] = decodeURIComponent(tmp[1]);
-    }
-    return params;
-}
-</script>
-<p>Hello! This website hosts a library of logs, displayed as if you have just run <span style="font-family:monospace; font-size: 19px; background-color:#333;">cargo miri test</span> on every published crate on crates.io.
-<p>Try searching for a crate below, if one is found you will be redirected to the build output for its most recently published version. For crates where Miri detects UB, the page will be automatically scrolled to the first UB report.
-<div style="text-align: center">
-<input id="search" style="width: 80%; height: 100%; margin: 0 auto;"></input>
-<p><span id=search-result style="font-family:monospace; font-size: 19px;"></span>
-</div>
-<script>
-const all =
-{"#;

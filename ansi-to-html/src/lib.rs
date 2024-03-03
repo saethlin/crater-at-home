@@ -37,16 +37,16 @@ where
     R: Read,
 {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
-        assert!(buf.len() > 0);
+        if buf.is_empty() {
+            return Ok(0);
+        }
         while self.finished_line.is_none() && !self.wrote_final_line {
             let mut byte = [0u8];
             let n = self.bytes.read(&mut byte)?;
             if n == 0 {
-                log::info!("input exhausted, finalizing");
                 if let Some(line) = self.renderer.remove_oldest_row() {
                     self.finished_line = Some(line.into());
                 } else {
-                    log::info!("starting last line");
                     let mut line = Vec::new();
                     line.extend(b"</span></pre></body><style>");
                     self.renderer.emit_css(&mut line)?;
@@ -57,9 +57,10 @@ where
                 break;
             }
             self.parser.advance(&mut self.renderer, byte[0]);
-            if let Some(line) = self.renderer.pop_completed_row() {
+            if let Some(mut line) = self.renderer.pop_completed_row() {
                 if line.is_empty() {
-                    panic!("empty line??");
+                    log::warn!("renderer produced an empty line!");
+                    line = vec![b'\n'];
                 }
                 self.finished_line = Some(line.into());
             }
@@ -73,9 +74,6 @@ where
         }
         if line.is_empty() {
             self.finished_line = None;
-        }
-        if n == 0 {
-            log::info!("no bytes, eof");
         }
         Ok(n)
     }
