@@ -46,7 +46,10 @@ pub async fn run(args: &Args) -> Result<()> {
     crates.dedup_by(|(a, _), (b, _)| a.name == b.name);
 
     let ub_page = crate::render::render_ub(&crates)?;
-    client.upload(&format!("/crater-at-home/{}/ub", args.tool), ub_page.as_bytes())?;
+    client.upload(
+        &format!("/crater-at-home/{}/ub", args.tool),
+        ub_page.as_bytes(),
+    )?;
 
     Ok(())
 }

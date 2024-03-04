@@ -60,7 +60,7 @@ impl Client {
     }
 
     pub fn upload_raw(&self, krate: &Crate, data: &[u8]) -> Result<()> {
-       self.upload(&self.tool.raw_crate_path(krate), data)
+        self.upload(&self.tool.raw_crate_path(krate), data)
     }
 
     pub fn download_raw(&self, krate: &Crate) -> Result<Vec<u8>> {
