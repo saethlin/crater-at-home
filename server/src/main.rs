@@ -10,6 +10,7 @@ use hyper::service::service_fn;
 use hyper::{Request, Response, StatusCode};
 use semver::Version;
 use tokio::net::TcpListener;
+use xz2::bufread::XzDecoder;
 
 mod tokiort;
 use tokiort::TokioIo;
@@ -41,6 +42,7 @@ async fn echo(req: Request<Incoming>) -> Result<Response<BodyKind>> {
             log::info!("{}", path);
             if let Ok(file) = File::open(path) {
                 let reader = BufReader::new(file);
+                let reader = XzDecoder::new(reader);
                 let body = BodyKind::Rendered(Handle::new(reader));
                 Response::new(body)
             } else {
@@ -48,15 +50,24 @@ async fn echo(req: Request<Incoming>) -> Result<Response<BodyKind>> {
             }
         }
         ["ub"] => {
+            if let Ok(file) = File::open(format!("{root}/{tool}/ub")) {
+                let mut reader = BufReader::new(file);
+                reader.fill_buf()?;
+                Response::new(BodyKind::Streamed(reader))
+            } else {
+                error_response()
+            }
         }
-        Response::new(BodyKind::Static("under construction")),
         [] => {
             if let Some(krate) = req.uri().query() {
                 let path = format!("{root}/{tool}/raw/{krate}");
                 log::info!("{path}");
 
                 let mut max_version = None;
-                for entry in std::fs::read_dir(&path)? {
+                let Ok(iter) = std::fs::read_dir(&path) else {
+                    return Ok(error_response());
+                };
+                for entry in iter {
                     let entry = entry?;
                     let path = entry.path();
                     let Some(file_name) = path.file_name() else {
@@ -74,6 +85,7 @@ async fn echo(req: Request<Incoming>) -> Result<Response<BodyKind>> {
                     log::info!("{}", path);
                     if let Ok(file) = File::open(path) {
                         let reader = BufReader::new(file);
+                        let reader = XzDecoder::new(reader);
                         let body = BodyKind::Rendered(Handle::new(reader));
                         Response::new(body)
                     } else {
@@ -88,9 +100,10 @@ async fn echo(req: Request<Incoming>) -> Result<Response<BodyKind>> {
         }
         _ => error_response(),
     };
-    response
-        .headers_mut()
-        .insert("Content-Type", HeaderValue::from_static("text/html;charset=utf-8"));
+    response.headers_mut().insert(
+        "Content-Type",
+        HeaderValue::from_static("text/html;charset=utf-8"),
+    );
     Ok(response)
 }
 
@@ -126,17 +139,17 @@ async fn main() -> Result<()> {
 enum BodyKind {
     Static(&'static str),
     Streamed(BufReader<File>),
-    Rendered(Handle<BufReader<File>>),
+    Rendered(Handle<XzDecoder<BufReader<File>>>),
 }
 
 use bytes::Bytes;
 use hyper::body::Frame;
 use hyper::body::SizeHint;
+use std::io::BufRead;
+use std::io::Read;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
-
-use std::io::Read;
 
 impl hyper::body::Body for BodyKind {
     type Data = Bytes;
@@ -165,6 +178,18 @@ impl hyper::body::Body for BodyKind {
                     Poll::Ready(None)
                 }
             }
+            BodyKind::Streamed(reader) => {
+                let buf = reader.fill_buf()?;
+                let len = buf.len();
+                let chunk = Bytes::copy_from_slice(buf);
+                reader.consume(len);
+                reader.fill_buf()?;
+                if chunk.is_empty() {
+                    Poll::Ready(None)
+                } else {
+                    Poll::Ready(Some(Ok(Frame::data(chunk))))
+                }
+            }
         }
     }
 
@@ -172,6 +197,7 @@ impl hyper::body::Body for BodyKind {
         match self {
             BodyKind::Static(s) => s.is_empty(),
             BodyKind::Rendered(h) => h.is_empty(),
+            BodyKind::Streamed(reader) => reader.buffer().is_empty(),
         }
     }
 

@@ -100,7 +100,7 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
 
         let kind;
         if line.contains("Data race detected") {
-            kind = "data race".to_string()
+            kind = "data race".to_string();
         } else if line.contains("encountered uninitialized")
             || line.contains("this operation requires initialized memory")
         {
@@ -141,7 +141,7 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
             }
         } else if line.contains("type validation failed") {
             let second = line.split(": encountered").nth(1).unwrap().trim();
-            kind = format!("type validation failed: encountered {}", second);
+            kind = format!("type validation failed: encountered {second}");
         } else {
             kind = line
                 .split("Undefined Behavior: ")
@@ -165,7 +165,7 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
                 }
             }
         }
-        causes.push(Cause { kind, source_crate })
+        causes.push(Cause { kind, source_crate });
     }
 
     causes.sort();

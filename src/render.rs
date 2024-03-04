@@ -55,7 +55,7 @@ pub fn render_crate(krate: &Crate, output: &[u8]) -> String {
         "misaligned pointer dereference",
     ] {
         if encoded.contains(pat) {
-            let replacement = format!("<span id=\"ub\"></span>{}", pat);
+            let replacement = format!("<span id=\"ub\"></span>{pat}");
             encoded = encoded.replacen(pat, &replacement, 1);
             break;
         }
@@ -199,7 +199,7 @@ Click on a crate to the right to display its build log
 
 pub fn render_ub(crates: &[(Crate, Status)]) -> Result<String> {
     let mut output = String::new();
-    writeln!(output, "{}", OUTPUT_HEADER)?;
+    writeln!(output, "{OUTPUT_HEADER}")?;
     for (c, status) in crates {
         if let Status::UB { cause: causes, .. } = &status {
             write!(output, "<div class=\"row\">{} {}<br>", c.name, c.version,)?;

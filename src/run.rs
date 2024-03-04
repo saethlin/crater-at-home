@@ -12,6 +12,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use uuid::Uuid;
+use xz2::write::XzEncoder;
 
 static TEST_END_DELIMITER: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 
@@ -88,7 +89,7 @@ fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
     Ok(crates)
 }
 
-pub fn run(args: Args) -> Result<()> {
+pub fn run(args: &Args) -> Result<()> {
     let dockerfile = if std::env::var_os("CI").is_some() {
         "docker/Dockerfile.ci"
     } else {
@@ -101,7 +102,7 @@ pub fn run(args: Args) -> Result<()> {
 
     log::info!("Figuring out what crates have a build log already");
     let client = Client::new(args.tool, &args.bucket)?;
-    let mut crates = build_crate_list(&args, &client)?;
+    let mut crates = build_crate_list(args, &client)?;
     if !args.rerun {
         let finished_crates = client.list_finished_crates(Some(time::Duration::days(90)))?;
         crates.retain(|krate| {
@@ -121,7 +122,7 @@ pub fn run(args: Args) -> Result<()> {
     for cpu in 0..args.jobs.unwrap_or_else(num_cpus::get) {
         let crates = crates.clone();
         let args = args.clone();
-        let client = client.clone();
+        let client = Client::new(args.tool, &args.bucket)?;
 
         let test_end_delimiter_with_dashes = format!("-{}-\n", *TEST_END_DELIMITER).into_bytes();
 
@@ -148,18 +149,22 @@ pub fn run(args: Args) -> Result<()> {
                     .write_all(format!("{}@{}\n", krate.name, krate.version).as_bytes())
                     .unwrap();
 
+                let mut encoder = XzEncoder::new(Vec::new(), 6);
                 let mut output = Vec::new();
                 loop {
                     let bytes_read = stdout.read_until(b'\n', &mut output).unwrap();
                     if output.ends_with(&test_end_delimiter_with_dashes) {
-                        output.truncate(output.len() - test_end_delimiter_with_dashes.len() - 1);
+                        output.truncate(output.len() - test_end_delimiter_with_dashes.len());
+                        encoder.write_all(&output).unwrap();
                         break;
                     }
+                    encoder.write_all(&output).unwrap();
+                    output.clear();
                     if bytes_read == 0 {
                         break;
                     }
                 }
-                log::debug!("{:?}", output);
+                let compressed = encoder.finish().unwrap();
 
                 if let Ok(Some(_)) = child.try_wait() {
                     log::warn!("A worker crashed! Standing up a new one...");
@@ -168,8 +173,7 @@ pub fn run(args: Args) -> Result<()> {
                     continue;
                 }
 
-                // Upload both
-                client.upload_raw(&krate, output).unwrap();
+                client.upload_raw(&krate, &compressed).unwrap();
 
                 log::info!("Finished {} {}", krate.name, krate.version);
             }

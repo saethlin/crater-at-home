@@ -14,6 +14,7 @@ ansi-to-html = { path = "../ansi-to-html" }
 log = "0.4.21"
 env_logger = "0.11.2"
 semver = "1.0.22"
+xz2 = "0.1.7"
 
 [profile.release]
 debug = 1
