@@ -7,6 +7,7 @@ use std::io::Read;
 use std::io::Write;
 use std::net::TcpStream;
 use std::path::Path;
+use xz2::write::XzDecoder;
 
 #[derive(Clone)]
 pub struct Client {
@@ -64,7 +65,10 @@ impl Client {
     }
 
     pub fn download_raw(&self, krate: &Crate) -> Result<Vec<u8>> {
-        self.download(&self.tool.raw_crate_path(krate))
+        let bytes = self.download(&self.tool.raw_crate_path(krate))?;
+        let mut decoder = XzDecoder::new(Vec::new());
+        decoder.write_all(&bytes)?;
+        Ok(decoder.finish()?)
     }
 
     fn download(&self, key: &str) -> Result<Vec<u8>> {

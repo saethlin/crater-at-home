@@ -173,6 +173,7 @@ impl hyper::body::Body for BodyKind {
                 let mut chunk: [u8; 4096] = [0u8; 4096];
                 if let Ok(n) = h.read(&mut chunk) {
                     let chunk = Bytes::copy_from_slice(&chunk[..n]);
+                    log::debug!("Yielding chunk of length {}", chunk.len());
                     Poll::Ready(Some(Ok(Frame::data(chunk))))
                 } else {
                     Poll::Ready(None)
