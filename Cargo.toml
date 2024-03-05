@@ -10,7 +10,6 @@ env_logger = "0.10"
 log = "0.4.17"
 serde = { version = "1.0.140", features = ["derive"] }
 ansi-to-html = { path = "ansi-to-html" }
-color-eyre = "0.6.2"
 semver = "1.0.12"
 tar = "0.4.38"
 flate2 = "1.0.24"
@@ -22,14 +21,12 @@ regex = "1.6.0"
 uuid = { version = "1.1.2", features = ["v4"] }
 num_cpus = "1.13.1"
 tokio = { version = "1.21.2", features = ["full"] }
-futures-util = "0.3.24"
-aws-sdk-s3 = "0.24"
-aws-smithy-types-convert = { version = "0.54", features = ["convert-time"] }
-aws-config = "0.54"
 serde_json = "1.0.96"
 xz2 = "0.1.7"
-backoff = { version = "0.4.0", features = ["futures", "tokio"] }
+backoff = "0.4.0"
 time = { version = "0.3", features = ["std"] }
+anyhow = { version = "1.0.80", features = ["backtrace"] }
+ssh2 = "0.9.4"
 
 [profile.release]
 debug = 1

@@ -1,5 +1,5 @@
-use crate::{Crate, Status, Version};
-use color_eyre::Result;
+use crate::{Crate, Version};
+use anyhow::Result;
 use flate2::read::GzDecoder;
 use fxhash::FxHashMap;
 use serde::Deserialize;
@@ -83,7 +83,6 @@ pub fn download() -> Result<Vec<Crate>> {
                 name: name.clone(),
                 recent_downloads: Some(krate.recent_downloads),
                 version: krate.version,
-                status: Status::Unknown,
             })
         })
         .collect::<Vec<_>>();

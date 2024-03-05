@@ -1,8 +1,11 @@
-use std::io::{copy, stdin, stdout};
+use std::io::{stdin, stdout, Write};
 
-fn main() {
+fn main() -> Result<(), std::io::Error> {
     env_logger::init();
-    let mut handle = ansi_to_html::Handle::new();
-    copy(&mut stdin().lock(), &mut handle).unwrap();
-    handle.finish(stdout().lock()).unwrap();
+    let mut renderer = ansi_to_html::Renderer::new(stdin().lock(), String::from("stdin"));
+    let mut out = stdout().lock();
+    while let Some(line) = renderer.next_line()? {
+        out.write_all(&line)?;
+    }
+    Ok(())
 }

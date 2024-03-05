@@ -1,5 +1,5 @@
+use anyhow::Result;
 use clap::Parser;
-use color_eyre::Result;
 use diagnose::diagnose;
 use std::{fmt, str::FromStr};
 
@@ -30,12 +30,11 @@ fn main() -> Result<()> {
         std::env::set_var("RUST_LOG", "info");
     }
     env_logger::init();
-    color_eyre::install()?;
 
     let args = Cli::parse();
     match args.command {
-        Commands::Run(args) => run::run(args),
-        Commands::Sync(args) => sync::run(args),
+        Commands::Run(args) => run::run(&args),
+        Commands::Sync(args) => sync::run(&args),
     }
 }
 
@@ -50,37 +49,15 @@ pub enum Tool {
 impl Tool {
     pub fn raw_path(self) -> &'static str {
         match self {
-            Tool::Miri => "miri/raw",
-            Tool::Asan => "asan/raw",
-            Tool::Build => "build/raw",
-            Tool::Check => "check/raw",
+            Tool::Miri => "/crater-at-home/miri/raw",
+            Tool::Asan => "/crater-at-home/asan/raw",
+            Tool::Build => "/crater-at-home/build/raw",
+            Tool::Check => "/crater-at-home/check/raw",
         }
     }
 
     pub fn raw_crate_path(self, krate: &Crate) -> String {
         format!("{}/{}/{}", self.raw_path(), krate.name, krate.version)
-    }
-
-    pub fn html_path(self) -> &'static str {
-        match self {
-            Tool::Miri => "miri/logs",
-            Tool::Asan => "asan/logs",
-            Tool::Build => "build/logs",
-            Tool::Check => "check/logs",
-        }
-    }
-
-    pub fn rendered_crate_path(self, krate: &Crate) -> String {
-        format!("{}/{}/{}", self.html_path(), krate.name, krate.version)
-    }
-
-    pub fn landing_page_path(self) -> &'static str {
-        match self {
-            Tool::Miri => "miri/index.html",
-            Tool::Asan => "asan/index.html",
-            Tool::Build => "build/index.html",
-            Tool::Check => "check/index.html",
-        }
     }
 }
 
@@ -105,7 +82,7 @@ impl FromStr for Tool {
             "asan" => Ok(Self::Asan),
             "build" => Ok(Self::Build),
             "check" => Ok(Self::Check),
-            _ => Err(format!("Invalid tool {}", s)),
+            _ => Err(format!("Not a supported tool: {s}")),
         }
     }
 }
@@ -115,7 +92,6 @@ pub struct Crate {
     pub name: String,
     pub version: Version,
     pub recent_downloads: Option<u64>,
-    pub status: Status,
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Debug)]
@@ -144,8 +120,8 @@ impl Version {
 impl fmt::Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Version::Parsed(v) => write!(f, "{}", v),
-            Version::Unparsed(v) => write!(f, "{}", v),
+            Version::Parsed(v) => write!(f, "{v}"),
+            Version::Unparsed(v) => write!(f, "{v}"),
         }
     }
 }
