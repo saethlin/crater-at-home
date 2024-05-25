@@ -22,7 +22,7 @@ elif [[ $TARGET == "aarch64-unknown-linux-gnu" ]]; then
 fi
 
 if [[ $TOOL == "build" ]]; then
-    export RUSTFLAGS="-Zvalidate-mir -Zmir-opt-level=4 -Zinline-mir -Cdebuginfo=2 -Cdebug-assertions=yes -Copt-level=3 -Zcross-crate-inline-threshold=always -Zthreads=64 -Zinline-mir-hint-threshold=10000 -Zinline-mir-threshold=10000"
+    export RUSTFLAGS="$RUSTFLAGS -Zmir-opt-level=4 -Zinline-mir -Cdebuginfo=2 -Cdebug-assertions=yes -Copt-level=3 -Zcross-crate-inline-threshold=always -Zthreads=64 -Zinline-mir-hint-threshold=10000 -Zinline-mir-threshold=10000 -Zmir-enable-passes=-DataflowConstProp"
 elif [[ $TOOL == "asan" ]]; then
     # Use 1 GB for a default stack size.
     # We really want to only run out of stack in true infinite recursion.
@@ -31,7 +31,7 @@ elif [[ $TOOL == "asan" ]]; then
     export RUSTFLAGS="$RUSTFLAGS -Cdebuginfo=1 -Zstrict-init-checks=no"
     export ASAN_OPTIONS="color=always:detect_leaks=0:detect_stack_use_after_return=true:allocator_may_return_null=1:detect_invalid_pointer_pairs=2"
 elif [[ $TOOL == "miri" ]]; then
-    export RUSTFLAGS="$RUSTFLAGS -Zrandomize-layout -Cdebuginfo=0"
+    export RUSTFLAGS="$RUSTFLAGS -Zrandomize-layout -Cdebuginfo=1"
     export MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-num-cpus=64"
 fi
 export RUSTDOCFLAGS=$RUSTFLAGS
