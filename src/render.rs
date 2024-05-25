@@ -52,6 +52,7 @@ pub fn render_crate(krate: &Crate, output: &[u8]) -> String {
         "SIGILL: illegal instruction",
         "attempted to leave type",
         "misaligned pointer dereference",
+        "unsafe precondition(s) violated",
     ] {
         if encoded.contains(pat) {
             let replacement = format!("<span id=\"ub\"></span>{}", pat);

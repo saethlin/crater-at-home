@@ -46,6 +46,13 @@ pub fn diagnose(krate: &mut Crate, output: &[u8]) -> Result<()> {
                 source_crate: None,
             }],
         }
+    } else if output.contains("unsafe precondition(s) violated") {
+        Status::UB {
+            cause: vec![Cause {
+                kind: "precondition check failed".to_string(),
+                source_crate: None,
+            }],
+        }
     } else if output.contains("Command exited with non-zero status 124") {
         Status::Error("Timeout".to_string())
     } else if output.contains("Command exited with non-zero status 255") {
