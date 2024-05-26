@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y curl build-essential && \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     sh -s -- --default-toolchain=nightly --component=miri --component=rust-src --profile=minimal -y && \
     cargo install --git https://github.com/saethlin/miri-tools cargo-download inapty get-args && \
-    cargo install --git https://github.com/RalfJung/cargo-careful --rev 7fa90c6 cargo-careful && \
+    cargo install --git https://github.com/RalfJung/cargo-careful && \
     curl -L https://get.nexte.st/latest/linux | tar zxf - && mv cargo-nextest /root/.cargo/bin/ && \
     rm -rf /var/lib/apt/lists/*
 
