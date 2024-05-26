@@ -1,17 +1,15 @@
-use crate::{Cause, Crate, Status};
-
-use color_eyre::Result;
+use crate::{Cause, Status};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
 static ANSI_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new("\x1b(\\[[0-9;?]*[A-HJKSTfhilmnsu]|\\(B)").unwrap());
 
-pub fn diagnose(krate: &mut Crate, output: &[u8]) -> Result<()> {
+pub fn diagnose(output: &[u8]) -> Status {
     let output = String::from_utf8_lossy(output);
     let output = ANSI_REGEX.replace_all(&output, "").to_string();
     // Strip ANSI escape codes from the output;
-    krate.status = if output.contains("Undefined Behavior: ") {
+    if output.contains("Undefined Behavior: ") {
         Status::UB {
             cause: diagnose_output(&output),
         }
@@ -61,8 +59,7 @@ pub fn diagnose(krate: &mut Crate, output: &[u8]) -> Result<()> {
         Status::Error(String::new())
     } else {
         Status::Passing
-    };
-    Ok(())
+    }
 }
 
 fn diagnose_asan(output: &str) -> Vec<Cause> {
@@ -116,7 +113,7 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
 
         let kind;
         if line.contains("Data race detected") {
-            kind = "data race".to_string()
+            kind = "data race".to_string();
         } else if line.contains("encountered uninitialized")
             || line.contains("this operation requires initialized memory")
         {
@@ -157,7 +154,7 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
             }
         } else if line.contains("type validation failed") {
             let second = line.split(": encountered").nth(1).unwrap().trim();
-            kind = format!("type validation failed: encountered {}", second);
+            kind = format!("type validation failed: encountered {second}");
         } else {
             kind = line
                 .split("Undefined Behavior: ")
@@ -181,7 +178,7 @@ fn diagnose_output(output: &str) -> Vec<Cause> {
                 }
             }
         }
-        causes.push(Cause { kind, source_crate })
+        causes.push(Cause { kind, source_crate });
     }
 
     causes.sort();

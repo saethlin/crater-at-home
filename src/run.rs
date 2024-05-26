@@ -1,18 +1,18 @@
-use crate::{client::Client, render, Crate, Tool, Version};
+use crate::{client::Client, Crate, Tool, Version};
+use anyhow::{ensure, Result};
 use clap::Parser;
-use color_eyre::eyre::Result;
 use once_cell::sync::Lazy;
+use std::io::BufRead;
+use std::io::Write;
 use std::{
     collections::HashMap,
     fs,
+    io::BufReader,
     process::Stdio,
     sync::{Arc, Mutex},
 };
-use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    task::JoinSet,
-};
 use uuid::Uuid;
+use xz2::write::XzEncoder;
 
 static TEST_END_DELIMITER: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 
@@ -55,8 +55,8 @@ pub struct Args {
     target: String,
 }
 
-async fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
-    let all_crates = client.get_crate_versions().await?;
+fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
+    let all_crates = client.get_crate_versions()?;
     let crates = if let Some(crate_list) = &args.crate_list {
         let crate_list = fs::read_to_string(crate_list).unwrap();
         let all_crates: HashMap<String, Crate> = all_crates
@@ -89,8 +89,7 @@ async fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
     Ok(crates)
 }
 
-#[tokio::main]
-pub async fn run(args: Args) -> Result<()> {
+pub fn run(args: &Args) -> Result<()> {
     let dockerfile = if std::env::var_os("CI").is_some() {
         "docker/Dockerfile.ci"
     } else {
@@ -99,15 +98,13 @@ pub async fn run(args: Args) -> Result<()> {
     let status = std::process::Command::new("docker")
         .args(["build", "-t", "crater-at-home", "-f", dockerfile, "docker/"])
         .status()?;
-    color_eyre::eyre::ensure!(status.success(), "docker image build failed!");
+    ensure!(status.success(), "docker image build failed!");
 
     log::info!("Figuring out what crates have a build log already");
-    let client = Arc::new(Client::new(args.tool, &args.bucket).await?);
-    let mut crates = build_crate_list(&args, &client).await?;
+    let client = Client::new(args.tool, &args.bucket)?;
+    let mut crates = build_crate_list(args, &client)?;
     if !args.rerun {
-        let finished_crates = client
-            .list_finished_crates(Some(time::Duration::days(90)))
-            .await?;
+        let finished_crates = client.list_finished_crates(Some(time::Duration::days(90)))?;
         crates.retain(|krate| {
             !finished_crates
                 .iter()
@@ -121,17 +118,17 @@ pub async fn run(args: Args) -> Result<()> {
     }
     let crates = Arc::new(Mutex::new(crates));
 
-    let mut tasks = JoinSet::new();
+    let mut tasks = Vec::new();
     for cpu in 0..args.jobs.unwrap_or_else(num_cpus::get) {
         let crates = crates.clone();
         let args = args.clone();
-        let client = client.clone();
+        let client = Client::new(args.tool, &args.bucket)?;
 
         let test_end_delimiter_with_dashes = format!("-{}-\n", *TEST_END_DELIMITER).into_bytes();
 
         let mut child = spawn_worker(&args, cpu);
 
-        tasks.spawn(async move {
+        let handle = std::thread::spawn(move || {
             loop {
                 let mut stdout = BufReader::new(child.stdout.as_mut().unwrap());
                 let krate = match crates.lock().unwrap().pop() {
@@ -150,21 +147,24 @@ pub async fn run(args: Args) -> Result<()> {
                     .as_mut()
                     .unwrap()
                     .write_all(format!("{}@{}\n", krate.name, krate.version).as_bytes())
-                    .await
                     .unwrap();
 
+                let mut encoder = XzEncoder::new(Vec::new(), 6);
                 let mut output = Vec::new();
                 loop {
-                    let bytes_read = stdout.read_until(b'\n', &mut output).await.unwrap();
+                    let bytes_read = stdout.read_until(b'\n', &mut output).unwrap();
                     if output.ends_with(&test_end_delimiter_with_dashes) {
-                        output.truncate(output.len() - test_end_delimiter_with_dashes.len() - 1);
+                        output.truncate(output.len() - test_end_delimiter_with_dashes.len());
+                        encoder.write_all(&output).unwrap();
                         break;
                     }
+                    encoder.write_all(&output).unwrap();
+                    output.clear();
                     if bytes_read == 0 {
                         break;
                     }
                 }
-                log::debug!("{:?}", output);
+                let compressed = encoder.finish().unwrap();
 
                 if let Ok(Some(_)) = child.try_wait() {
                     log::warn!("A worker crashed! Standing up a new one...");
@@ -173,23 +173,16 @@ pub async fn run(args: Args) -> Result<()> {
                     continue;
                 }
 
-                // Render HTML for the stderr/stdout we captured
-                let rendered = render::render_crate(&krate, &output);
-
-                // Upload both
-                client.upload_raw(&krate, output).await.unwrap();
-                client
-                    .upload_html(&krate, rendered.into_bytes())
-                    .await
-                    .unwrap();
+                client.upload_raw(&krate, &compressed).unwrap();
 
                 log::info!("Finished {} {}", krate.name, krate.version);
             }
         });
+        tasks.push(handle);
     }
 
-    while let Some(task) = tasks.join_next().await {
-        task?;
+    for task in tasks {
+        task.join().unwrap();
     }
 
     log::info!("done!");
@@ -197,8 +190,8 @@ pub async fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-fn spawn_worker(args: &Args, cpu: usize) -> tokio::process::Child {
-    let mut cmd = tokio::process::Command::new("docker");
+fn spawn_worker(args: &Args, cpu: usize) -> std::process::Child {
+    let mut cmd = std::process::Command::new("docker");
     cmd.args([
         "run",
         "--rm",
