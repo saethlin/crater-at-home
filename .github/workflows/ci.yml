@@ -40,7 +40,7 @@ jobs:
         run: |
           echo "::group::Install dependencies"
           set -o pipefail
-          cargo install htmlpty --locked --git https://github.com/saethlin/miri-tools
+          cargo install htmlpty --locked --path htmlpty
           set +e
           echo "::endgroup"
           htmlpty bash ci.sh ${{ matrix.suite }} 2> output.html
