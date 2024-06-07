@@ -30,7 +30,8 @@ fn main() {
 
         let mut buf = [0u8; 4096];
         let mut stdout = stdout().lock();
-        let mut renderer = ansi_to_html::Handle::new();
+        let stderr = stderr().lock();
+        let mut renderer = ansi_to_html::Handle::new(stderr);
         while let Ok(n) = pty.read(&mut buf) {
             let bytes = &buf[..n];
             stdout.write_all(bytes).unwrap();
@@ -38,9 +39,7 @@ fn main() {
         }
 
         stdout.flush().unwrap();
-        let mut stderr = stderr().lock();
-        renderer.finish(&mut stderr).unwrap();
-        stderr.flush().unwrap();
+        renderer.finish().unwrap();
 
         // Exit according to our child's status
         // SAFETY: No preconditions
