@@ -1,8 +1,13 @@
 use crate::ansi::Color;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::io::Write;
 
-pub struct Renderer {
+// This is the number of rows that inapty uses, should be good enough?
+const MAX_ROWS: usize = 64;
+
+pub struct Renderer<W> {
     pub name: String,
     pub bold: bool,
     pub italic: bool,
@@ -11,8 +16,10 @@ pub struct Renderer {
     pub foreground: Color,
     pub background: Color,
     current_row: usize,
-    rows: Vec<Row>,
+    rows: VecDeque<Row>,
     styles: Styles,
+    pub out: W,
+    prev: Cell,
 }
 
 #[derive(Debug, Default)]
@@ -48,11 +55,21 @@ struct Row {
 }
 
 impl Row {
+    const LEN: usize = 256;
+
     fn new() -> Self {
         Row {
-            cells: Vec::new(),
+            cells: vec![Cell::default(); Row::LEN],
             position: 0,
         }
+    }
+
+    fn clear(&mut self) {
+        self.cells.truncate(Row::LEN);
+        for c in &mut self.cells {
+            *c = Cell::default();
+        }
+        self.position = 0;
     }
 
     fn erase(&mut self) {
@@ -65,20 +82,26 @@ impl Row {
         self.position = position;
     }
 
-    // FIXME: This misbehaves if the position is off in space
+    #[inline]
     fn print(&mut self, cell: Cell) {
         if let Some(current) = self.cells.get_mut(self.position) {
             *current = cell;
         } else {
-            self.cells.push(cell);
+            self.print_cold(cell);
         }
         self.position += 1;
     }
+
+    #[cold]
+    #[inline(never)]
+    fn print_cold(&mut self, cell: Cell) {
+        self.cells.push(cell);
+    }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Cell {
-    text: char, // TODO: totally wrong, graphmeme clusters
+    text: char, // FIXME: totally wrong, graphmeme clusters
     foreground: Color,
     background: Color,
     bold: bool,
@@ -101,8 +124,8 @@ impl Default for Cell {
     }
 }
 
-impl Renderer {
-    pub fn new(name: String) -> Self {
+impl<W: Write> Renderer<W> {
+    pub fn new(out: W, name: String) -> Self {
         Self {
             name,
             bold: false,
@@ -112,8 +135,10 @@ impl Renderer {
             foreground: Color::bright_white(),
             background: Color::black(),
             current_row: 0,
-            rows: vec![Row::new()],
+            rows: vec![Row::new()].into(),
             styles: Styles::default(),
+            out,
+            prev: Cell::default(),
         }
     }
 
@@ -150,9 +175,19 @@ impl Renderer {
     }
 
     pub fn linefeed(&mut self) {
-        self.current_row += 1;
-        if self.current_row == self.rows.len() {
-            self.rows.push(Row::new());
+        if self.current_row == MAX_ROWS - 1 {
+            // Pushing something off the screen
+            let mut row = self.rows.pop_front().unwrap();
+            self.render(&row).unwrap();
+            row.clear();
+            self.rows.push_back(row);
+        } else if self.current_row == self.rows.len() - 1 {
+            // Not pushing something off screen, but we need a new row
+            self.rows.push_back(Row::new());
+            self.current_row += 1;
+        } else {
+            // Moving within the screen
+            self.current_row += 1;
         }
     }
 
@@ -183,9 +218,10 @@ impl Renderer {
     }
 
     pub fn handle_move(&mut self, row: u16, col: u16) {
-        self.current_row = row as usize;
-        while self.current_row >= self.rows.len() {
-            self.rows.push(Row::new());
+        if row <= self.current_row as u16 {
+            self.move_up_by(self.current_row as u16 - row)
+        } else {
+            self.move_down_by(row - self.current_row as u16);
         }
         self.set_column(col);
     }
@@ -195,9 +231,8 @@ impl Renderer {
     }
 
     pub fn move_down_by(&mut self, cells: u16) {
-        self.current_row += cells as usize;
-        while self.current_row >= self.rows.len() {
-            self.rows.push(Row::new());
+        for _ in 0..cells {
+            self.linefeed();
         }
     }
 
@@ -210,6 +245,7 @@ impl Renderer {
         self.current_row().position = self.current_row().position.saturating_sub(cells as usize);
     }
 
+    #[inline]
     pub fn set_column(&mut self, cells: u16) {
         let row = self.current_row();
         row.position = cells.saturating_sub(1) as usize;
@@ -219,49 +255,50 @@ impl Renderer {
         let _ = &row.cells[..row.position];
     }
 
-    pub fn emit_html<W: std::io::Write>(&self, mut out: W) -> std::io::Result<()> {
-        let mut prev = Cell {
-            text: ' ',
-            foreground: Color::bright_white(),
-            background: Color::black(),
-            bold: false,
-            italic: false,
-            underline: false,
-            dim: false,
-        };
-
-        out.write_all(b"<span>")?;
-
-        for row in &self.rows[..self.current_row] {
-            let row = &*row;
-            for cell in &row.cells {
-                // Terminal applications will often reset the style right after some formatted text
-                // then write some whitespace then set it to something again.
-                // So we only apply style changes if the cell is nonempty. This is a ~50% savings
-                // in emitted HTML.
-                if cell.text != ' ' {
-                    if cell.bold != prev.bold || cell.foreground != prev.foreground {
-                        self.styles.with(cell.foreground, cell.bold, |class| {
-                            write!(out, "</span><span class='{}'>", class)
-                        })?;
-                    }
-                    prev = cell.clone();
+    #[inline]
+    fn render(&mut self, row: &Row) -> std::io::Result<()> {
+        for cell in &row.cells {
+            // Terminal applications will often reset the style right after some formatted text
+            // then write some whitespace then set it to something again.
+            // So we only apply style changes if the cell is nonempty. This is a ~50% savings
+            // in emitted HTML.
+            let text = cell.text;
+            if text != ' ' {
+                if cell.bold != self.prev.bold || cell.foreground != self.prev.foreground {
+                    self.out.write_all(b"</span><span class='")?;
+                    self.styles.with(cell.foreground, cell.bold, |class| {
+                        self.out.write_all(class.as_bytes())
+                    })?;
+                    self.out.write_all(b"'>")?;
                 }
-                match cell.text {
-                    '<' => out.write_all(b"&lt")?,
-                    '>' => out.write_all(b"&gt")?,
-                    c => write!(out, "{}", c)?,
+                self.prev = *cell;
+            }
+            match text {
+                '<' => self.out.write_all(b"&lt")?,
+                '>' => self.out.write_all(b"&gt")?,
+                c => {
+                    let mut bytes = [0u8; 4];
+                    let s = c.encode_utf8(&mut bytes);
+                    self.out.write_all(s.as_bytes())?;
                 }
             }
-            out.write_all(&[b'\n'])?;
         }
-        out.write_all(b"</span>")
+        self.out.write_all(&[b'\n'])?;
+        Ok(())
     }
 
-    pub fn emit_css<W: std::io::Write>(&self, mut out: W) -> std::io::Result<()> {
+    pub fn emit_html(&mut self) -> std::io::Result<()> {
+        self.out.write_all(b"<span>")?;
+        for row in core::mem::take(&mut self.rows) {
+            self.render(&row)?;
+        }
+        self.out.write_all(b"</span>")
+    }
+
+    pub fn emit_css(&mut self) -> std::io::Result<()> {
         for ((color, bold), name) in self.styles.known.borrow().iter() {
             write!(
-                out,
+                self.out,
                 ".{}{{color:{};font-weight:{}}}\n",
                 name,
                 color.as_str(),

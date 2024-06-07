@@ -124,6 +124,7 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
             }
             */
 
+            log::info!("Rendering {:?}", krate);
             let rendered = render::render_crate(&krate, &raw);
             /*
             let mut header = tar::Header::new_gnu();
