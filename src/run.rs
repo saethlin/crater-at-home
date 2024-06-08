@@ -17,7 +17,12 @@ use uuid::Uuid;
 static TEST_END_DELIMITER: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 
 // These crates generate gigabytes of output then don't build.
-const IGNORED_CRATES: &[&str] = &["clacks_mtproto", "stdweb", "wayland-raw-protocol-bindings", "pleingres"];
+const IGNORED_CRATES: &[&str] = &[
+    "clacks_mtproto",
+    "stdweb",
+    "wayland-raw-protocol-bindings",
+    "pleingres",
+];
 
 #[derive(Parser, Clone)]
 pub struct Args {
