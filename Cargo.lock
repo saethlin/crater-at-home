@@ -31,6 +31,7 @@ name = "ansi-to-html"
 version = "0.1.0"
 dependencies = [
  "env_logger",
+ "fnv",
  "log",
  "vte",
 ]

@@ -1,8 +1,8 @@
 use crate::ansi::Color;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::io::Write;
+use fnv::FnvHashMap as HashMap;
 
 // This is the number of rows that inapty uses, should be good enough?
 const MAX_ROWS: usize = 64;
