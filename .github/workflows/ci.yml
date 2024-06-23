@@ -17,16 +17,17 @@ jobs:
     runs-on: ubuntu-latest
     name: ${{ matrix.suite }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Rustup
         run: |
           rustup self update
           rustup default stable
           rustup update
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/
+            ~/.cargo/registry
+            ~/.cargo/bin/cargo-fuzz
             target/
           key: ${{ runner.os }}-${{ matrix.suite }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-$(rustc --version)
@@ -40,7 +41,7 @@ jobs:
         run: |
           echo "::group::Install dependencies"
           set -o pipefail
-          cargo install htmlpty --locked --path htmlpty
+          CARGO_TARGET_DIR=target cargo install htmlpty --locked --path htmlpty
           set +e
           echo "::endgroup"
           htmlpty bash ci.sh ${{ matrix.suite }} 2> output.html
