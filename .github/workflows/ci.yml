@@ -28,6 +28,12 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/bin/cargo-fuzz
+            ~/.cargo/.crates2.json
+            ~/.cargo/.crates.toml
+            ~/.cargo/.global-cache
+            ~/.cargo/.package-cache
+            ~/.cargo/.package-cache-mutate
+            ~/.cargo/.rustc_info.json
             target/
           key: ${{ runner.os }}-${{ matrix.suite }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-$(rustc --version)
