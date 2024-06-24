@@ -14,7 +14,7 @@ TOOLCHAIN=nightly
 
 export CARGO_INCREMENTAL=0
 export RUST_BACKTRACE=1
-export RUSTFLAGS="--cap-lints=warn -Copt-level=0 -Zvalidate-mir"
+export RUSTFLAGS="--cap-lints=warn -Copt-level=0 -Zvalidate-mir -Aunexpected-cfgs"
 if [[ $TARGET == "x86_64-unknown-linux-gnu" ]]; then
     export RUSTFLAGS="$RUSTFLAGS -Ctarget-cpu=x86-64-v2"
 elif [[ $TARGET == "aarch64-unknown-linux-gnu" ]]; then

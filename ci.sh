@@ -7,7 +7,7 @@ export TERM=xterm-256color
 function group {
     echo "::group::$@"
     $@
-    echo "::endgroup"
+    echo "::endgroup::"
 }
 
 if [[ "$1" == "style" ]]
