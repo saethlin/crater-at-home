@@ -46,7 +46,7 @@ jobs:
           RUSTFLAGS: -Cdebuginfo=0
         run: |
           df -h
-          du -h / | sort -h | tail
+          du -h / 2>/dev/null | sort -h | tail
           echo "::group::Install dependencies"
           set -o pipefail
           CARGO_TARGET_DIR=target cargo install htmlpty --locked --path htmlpty
