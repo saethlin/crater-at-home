@@ -60,8 +60,8 @@ function run_miri {
     # rustdoc is already passed --color=always, so adding it to the global MIRIFLAGS is just an error
     MIRIFLAGS="$MIRIFLAGS --color=always" timed miri nextest run --color=always --no-fail-fast --config-file=/root/.cargo/nextest.toml $ARGS
     # nextest runs one interpreter per test, so unsupported errors only terminate the test not the whole suite.
-    # But we need to panic on unsupported for doctests, because nextest doesn't support doctests.
-    MIRIFLAGS="$MIRIFLAGS -Zmiri-panic-on-unsupported" timed miri test --doc --no-fail-fast $ARGS
+    # but the doctests implementation is quite different and already creates a new interpreter for every test.
+    timed miri test --doc --no-fail-fast $ARGS
 }
 
 if [[ $TOOL == "miri" ]]; then
