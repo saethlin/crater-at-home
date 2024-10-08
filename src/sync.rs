@@ -91,6 +91,7 @@ pub async fn run(args: Args) -> Result<()> {
 }
 
 async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
+    log::info!("Enumerating all finished crates");
     let all = client.list_finished_crates(None).await?;
     log::info!("Re-rendering HTML for {} crates", all.len());
     let mut tasks = JoinSet::new();
@@ -103,7 +104,7 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
         Vec::new(),
         5,
     ))));
-    for krate in all {
+    for krate in all.into_iter().rev() {
         let limit = Arc::clone(&limit);
         let client = Arc::clone(&client);
         //let all_raw = Arc::clone(&all_raw);
@@ -124,7 +125,6 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
             }
             */
 
-            log::info!("Rendering {:?}", krate);
             let rendered = render::render_crate(&krate, &raw);
             /*
             let mut header = tar::Header::new_gnu();
@@ -143,8 +143,13 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
             }
             */
 
-            let previous = client.download_html(&krate).await?;
-            if previous != rendered.as_bytes() {
+            let previous = client.download_html(&krate).await;
+            if let Ok(previous) = previous {
+                if previous != rendered.as_bytes() {
+                    log::info!("Uploading {}@{}", krate.name, krate.version);
+                    client.upload_html(&krate, rendered.into_bytes()).await?;
+                }
+            } else {
                 log::info!("Uploading {}@{}", krate.name, krate.version);
                 client.upload_html(&krate, rendered.into_bytes()).await?;
             }
