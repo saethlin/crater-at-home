@@ -70,7 +70,7 @@ async fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
             .collect();
         let mut crates = Vec::new();
         for line in crate_list.split_whitespace() {
-            let mut it = line.split(|c| c == '@' || c == '/');
+            let mut it = line.split(['@', '/']);
             let name = it.next().unwrap();
             let version = it.next();
             if let Some(c) = all_crates.get(name) {
