@@ -33,6 +33,8 @@ elif [[ $TOOL == "asan" ]]; then
 elif [[ $TOOL == "miri" ]]; then
     export RUSTFLAGS="$RUSTFLAGS -Zrandomize-layout -Cdebuginfo=1"
     export MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-num-cpus=64"
+elif [[ $TOOL == "check" ]]; then
+    export RUSTFLAGS="$RUSTFLAGS -Zthreads=64"
 fi
 export RUSTDOCFLAGS=$RUSTFLAGS
 
