@@ -1,7 +1,9 @@
+use crate::Version;
 use crate::{client::Client, db_dump, render, Crate, Tool};
 use aws_smithy_types_convert::date_time::DateTimeExt;
 use clap::Parser;
 use color_eyre::{Report, Result};
+use std::collections::hash_map::Entry;
 use std::{collections::HashMap, fmt::Write, sync::Arc};
 use tokio::{sync::Mutex, sync::Semaphore, task::JoinSet};
 
@@ -203,7 +205,7 @@ async fn sync_landing_page(client: &Client) -> Result<()> {
     // List all rendered HTML
     let rendered = client.list_rendered_crates().await?;
 
-    let mut output = String::from(crate::render::LANDING_PAGE);
+    let mut max_versions: HashMap<&str, Version> = HashMap::default();
     for c in &rendered {
         let mut it = c.splitn(2, '/');
         let Some(name) = it.next() else {
@@ -212,9 +214,26 @@ async fn sync_landing_page(client: &Client) -> Result<()> {
         let Some(version) = it.next() else {
             continue;
         };
-        writeln!(output, "\"{}\": [\"{}\"],", name, version)?;
+        let version = Version::parse(version);
+        match max_versions.entry(name) {
+            Entry::Vacant(ve) => {
+                ve.insert(version);
+            }
+            Entry::Occupied(mut oe) => {
+                let cur = oe.get_mut();
+                if version > *cur {
+                    *cur = version;
+                }
+            }
+        }
     }
-    output.pop();
+
+    let mut output = String::from(crate::render::LANDING_PAGE);
+    for (name, version) in max_versions {
+        writeln!(output, "\"{}\":\"{}\",", name, version)?;
+    }
+    output.pop(); // remove the trailing newline
+    output.pop(); // remove the last comma
     output.push_str("};</script></html>");
 
     client.upload_landing_page(output.into_bytes()).await?;
