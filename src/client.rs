@@ -34,7 +34,11 @@ impl Client {
     }
 
     pub async fn upload(&self, key: &str, data: &[u8], content_type: &str) -> Result<()> {
-        retry(|| self._upload(key, data, content_type)).await
+        retry(
+            || self._upload(key, data, content_type),
+            Some(format!("upload of {key}")),
+        )
+        .await
     }
 
     async fn _upload(&self, key: &str, data: &[u8], content_type: &str) -> Result<()> {
@@ -116,7 +120,7 @@ impl Client {
     }
 
     async fn download(&self, key: &str) -> Result<Vec<u8>> {
-        retry(|| self._download(key)).await
+        retry(|| self._download(key), Some(format!("download of {key}"))).await
     }
 
     async fn _download(&self, key: &str) -> Result<Vec<u8>> {
@@ -242,31 +246,38 @@ impl Client {
     }
 
     pub async fn list_db(&self) -> Result<Option<Object>> {
-        let res = retry(move || {
-            self.inner
-                .list_objects_v2()
-                .bucket(&self.bucket)
-                .prefix("crates.json")
-                .max_keys(1)
-                .send()
-        })
+        let res = retry(
+            move || {
+                self.inner
+                    .list_objects_v2()
+                    .bucket(&self.bucket)
+                    .prefix("crates.json")
+                    .max_keys(1)
+                    .send()
+            },
+            None,
+        )
         .await?;
         let meta = res.contents.and_then(|c| c.first().cloned());
         Ok(meta)
     }
 }
 
-async fn retry<I, E, Func, Fut>(mut f: Func) -> std::result::Result<I, E>
+async fn retry<I, E, Func, Fut>(mut f: Func, msg: Option<String>) -> std::result::Result<I, E>
 where
     Func: FnMut() -> Fut,
     Fut: Future<Output = std::result::Result<I, E>>,
-    E: std::fmt::Display,
+    E: std::fmt::Debug,
 {
     backoff::future::retry_notify(
         ExponentialBackoff::default(),
         || f().map_err(Error::transient),
         |e, _| {
-            log::warn!("{}", e);
+            if let Some(msg) = &msg {
+                log::warn!("During {msg}, encountered {:?}", e);
+            } else {
+                log::warn!("{:?}", e);
+            }
         },
     )
     .await
