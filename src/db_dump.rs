@@ -77,8 +77,8 @@ pub fn download() -> Result<Vec<Crate>> {
 
     // Sort by downloads
     let mut crates = crate_to_downloads
-        .into_iter()
-        .filter_map(|(_id, krate)| {
+        .into_values()
+        .filter_map(|krate| {
             num_to_name.get(&krate.crate_id).map(|name| Crate {
                 name: name.clone(),
                 recent_downloads: Some(krate.recent_downloads),
@@ -87,7 +87,7 @@ pub fn download() -> Result<Vec<Crate>> {
             })
         })
         .collect::<Vec<_>>();
-    crates.sort_by(|a, b| b.recent_downloads.cmp(&a.recent_downloads));
+    crates.sort_by_key(|a| std::cmp::Reverse(a.recent_downloads));
     Ok(crates)
 }
 
