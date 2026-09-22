@@ -6,6 +6,9 @@ use fnv::FnvHashMap as HashMap;
 
 // This is the number of rows that inapty uses, should be good enough?
 const MAX_ROWS: usize = 64;
+// This is the number of columns that inapty uses. Programs like nextest pad their output to
+// exactly this width and rely on the terminal wrapping instead of emitting a newline.
+const MAX_COLS: usize = 128;
 
 pub struct Renderer<W> {
     pub name: String,
@@ -55,7 +58,7 @@ struct Row {
 }
 
 impl Row {
-    const LEN: usize = 256;
+    const LEN: usize = MAX_COLS;
 
     fn new() -> Self {
         Row {
@@ -143,6 +146,13 @@ impl<W: Write> Renderer<W> {
     }
 
     pub fn print(&mut self, c: char) {
+        // Wrap onto the next line if the previous character filled the last column. Like a real
+        // terminal, this is deferred until we have another character to print, so that a CR/LF
+        // that arrives right after the last column doesn't produce an extra blank line.
+        if self.current_row().position >= MAX_COLS {
+            self.linefeed();
+            self.carriage_return();
+        }
         let cell = Cell {
             text: c,
             background: self.background,
