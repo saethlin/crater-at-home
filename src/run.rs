@@ -83,7 +83,7 @@ async fn build_crate_list(args: &Args, client: &Client) -> Result<Vec<Crate>> {
                 });
             }
         }
-        crates.sort_by(|a, b| a.recent_downloads.cmp(&b.recent_downloads));
+        crates.sort_by_key(|a| a.recent_downloads);
         crates
     } else if let Some(crate_count) = args.crates {
         let mut crates = all_crates;
