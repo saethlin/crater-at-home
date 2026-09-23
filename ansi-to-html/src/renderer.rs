@@ -8,7 +8,7 @@ use fnv::FnvHashMap as HashMap;
 const MAX_ROWS: usize = 64;
 // This is the number of columns that inapty uses. Programs like nextest pad their output to
 // exactly this width and rely on the terminal wrapping instead of emitting a newline.
-const MAX_COLS: usize = 128;
+const MAX_COLS: usize = 256;
 
 pub struct Renderer<W> {
     pub name: String,
