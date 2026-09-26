@@ -1,4 +1,4 @@
-FROM ghcr.io/saethlin/crates-build-env:latest
+FROM crates-build-env:latest
 
 ENV PATH=/root/.cargo/bin:$PATH
 
