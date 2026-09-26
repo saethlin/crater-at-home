@@ -103,7 +103,7 @@ pub async fn run(args: Args) -> Result<()> {
         "docker/Dockerfile"
     };
     let status = std::process::Command::new("docker")
-        .args(["build", "-t", "crater-at-home", "-f", dockerfile, "docker/"])
+        .args(["build", "--no-cache", "-t", "crater-at-home", "-f", dockerfile, "docker/"])
         .status()?;
     color_eyre::eyre::ensure!(status.success(), "docker image build failed!");
 
