@@ -1,114 +1,68 @@
+use crate::Store;
 use crate::{Crate, Status, Tool, Version};
-use aws_sdk_s3::model::{CompletedMultipartUpload, CompletedPart, Object};
-use aws_smithy_types_convert::date_time::DateTimeExt;
 use backoff::Error;
 use backoff::ExponentialBackoff;
+use chrono::TimeDelta;
+use chrono::Utc;
 use color_eyre::Result;
 use futures_util::StreamExt;
 use futures_util::TryFutureExt;
+use object_store::aws::AmazonS3Builder;
+use object_store::local::LocalFileSystem;
+use object_store::path::Path;
+use object_store::ObjectMeta;
+use object_store::ObjectStore;
+use object_store::ObjectStoreExt;
+use object_store::WriteMultipart;
 use std::collections::HashMap;
+use std::fs;
 use std::future::Future;
 
-#[derive(Clone)]
 pub struct Client {
-    inner: aws_sdk_s3::Client,
-    bucket: String,
+    inner: Box<dyn ObjectStore>,
     tool: Tool,
 }
 
-const CHUNK_SIZE: usize = 5 * 1024 * 1024;
-
 impl Client {
-    pub async fn new(tool: Tool, bucket: &str) -> Result<Self> {
-        let config = aws_config::load_from_env().await;
-        let inner = aws_sdk_s3::Client::new(&config);
-        Ok(Self {
-            inner,
-            bucket: bucket.to_string(),
-            tool,
-        })
+    pub async fn new(tool: Tool, store: &Store) -> Result<Self> {
+        let inner: Box<dyn ObjectStore> = if let Some(bucket) = &store.bucket {
+            Box::new(
+                AmazonS3Builder::from_env()
+                    .with_bucket_name(bucket)
+                    .build()?,
+            )
+        } else {
+            let storage_dir = store.storage_dir.as_ref().expect("validated by clap");
+            fs::create_dir_all(storage_dir)?;
+            Box::new(LocalFileSystem::new_with_prefix(storage_dir)?)
+        };
+        Ok(Self { inner, tool })
     }
 
     pub fn tool(&self) -> Tool {
         self.tool
     }
 
-    pub async fn upload(&self, key: &str, data: &[u8], content_type: &str) -> Result<()> {
-        retry(
-            || self._upload(key, data, content_type),
-            Some(format!("upload of {key}")),
-        )
-        .await
+    pub async fn upload(&self, key: &str, data: &[u8]) -> Result<()> {
+        retry(|| self._upload(key, data), Some(format!("upload of {key}"))).await
     }
 
-    async fn _upload(&self, key: &str, data: &[u8], content_type: &str) -> Result<()> {
-        // S3 has a minimum multipart upload size of 5 MB. If we are below that, we need to use
-        // PutObject.
-        if data.len() < CHUNK_SIZE {
-            self.inner
-                .put_object()
-                .bucket(&self.bucket)
-                .key(key)
-                .body(data.to_vec().into())
-                .content_type(content_type)
-                .send()
-                .await?;
-            return Ok(());
-        }
-
-        let res = self
-            .inner
-            .create_multipart_upload()
-            .bucket(&self.bucket)
-            .key(key)
-            .content_type(content_type)
-            .send()
-            .await?;
-        let upload_id = res.upload_id().unwrap();
-        let mut parts = Vec::new();
-        for (part_number, chunk) in data.chunks(CHUNK_SIZE).enumerate() {
-            // part numbers must start at 1
-            let part_number = part_number as i32 + 1;
-            let upload_part_res = self
-                .inner
-                .upload_part()
-                .key(key)
-                .bucket(&self.bucket)
-                .upload_id(upload_id)
-                .body(chunk.to_vec().into())
-                .part_number(part_number)
-                .send()
-                .await?;
-            parts.push(
-                CompletedPart::builder()
-                    .e_tag(upload_part_res.e_tag.unwrap_or_default())
-                    .part_number(part_number)
-                    .build(),
-            )
-        }
-        let completed_multipart_upload = CompletedMultipartUpload::builder()
-            .set_parts(Some(parts))
-            .build();
-        self.inner
-            .complete_multipart_upload()
-            .bucket(&self.bucket)
-            .key(key)
-            .multipart_upload(completed_multipart_upload)
-            .upload_id(upload_id)
-            .send()
-            .await?;
+    async fn _upload(&self, key: &str, data: &[u8]) -> Result<()> {
+        let upload = self.inner.put_multipart(&Path::from(key)).await?;
+        let mut write = WriteMultipart::new(upload);
+        write.write(data);
+        write.finish().await?;
 
         Ok(())
     }
 
     pub async fn upload_raw(&self, krate: &Crate, data: Vec<u8>) -> Result<()> {
-        self.upload(&self.tool.raw_crate_path(krate), &data, "text/plain")
-            .await
+        self.upload(&self.tool.raw_crate_path(krate), &data).await
     }
 
     pub async fn upload_html(&self, krate: &Crate, data: Vec<u8>) -> Result<()> {
         let key = self.tool.rendered_crate_path(krate);
-        self.upload(&key, &data, "text/html;charset=utf-8").await
+        self.upload(&key, &data).await
     }
 
     pub async fn download_raw(&self, krate: &Crate) -> Result<Vec<u8>> {
@@ -124,41 +78,18 @@ impl Client {
     }
 
     async fn _download(&self, key: &str) -> Result<Vec<u8>> {
-        let response = self
-            .inner
-            .get_object()
-            .bucket(&self.bucket)
-            .key(key)
-            .send()
-            .await?;
-        let bytes = response.body.collect().await?;
-        Ok(bytes.to_vec())
+        let response = self.inner.get(&Path::from(key)).await?;
+        Ok(response.bytes().await?.to_vec())
     }
 
     pub async fn get_crate_downloads(&self) -> Result<HashMap<String, Option<u64>>> {
-        let response = self
-            .inner
-            .get_object()
-            .bucket(&self.bucket)
-            .key("downloads.json")
-            .send()
-            .await?;
-        let bytes = response.body.collect().await?;
-        let blob = bytes.to_vec();
+        let blob = self._download("downloads.json").await?;
         let crates: HashMap<_, _> = serde_json::from_slice(&blob)?;
         Ok(crates)
     }
 
     pub async fn get_crate_versions(&self) -> Result<Vec<Crate>> {
-        let response = self
-            .inner
-            .get_object()
-            .bucket(&self.bucket)
-            .key("crates.json")
-            .send()
-            .await?;
-        let bytes = response.body.collect().await?;
-        let blob = bytes.to_vec();
+        let blob = self._download("crates.json").await?;
         let crates: Vec<(String, String)> = serde_json::from_slice(&blob)?;
         let crates = crates
             .into_iter()
@@ -172,94 +103,76 @@ impl Client {
         Ok(crates)
     }
 
-    pub async fn list_finished_crates(&self, dur: Option<time::Duration>) -> Result<Vec<Crate>> {
-        let now = time::OffsetDateTime::now_utc();
-        let prefix = format!("{}/", self.tool.raw_path());
-        let mut res = self
-            .inner
-            .list_objects_v2()
-            .bucket(&self.bucket)
-            .prefix(&prefix)
-            .into_paginator()
-            .send();
+    pub async fn list_finished_crates(&self, dur: Option<TimeDelta>) -> Result<Vec<Crate>> {
+        let now = Utc::now();
+        let prefix = Path::from(format!("{}/", self.tool.raw_path()));
+        let mut res = self.inner.list(Some(&prefix));
         let mut files = Vec::new();
         while let Some(res) = res.next().await {
-            let page = res?;
-            for obj in page.contents().unwrap_or_default() {
-                if let Some(dur) = dur {
-                    if let Some(modified) = obj.last_modified() {
-                        let modified = modified.to_time().unwrap();
-                        // Ignore crates older than dur
-                        if now - modified > dur {
-                            continue;
-                        }
-                    }
+            let obj = res?;
+            if let Some(dur) = dur {
+                // Ignore crates older than dur
+                if now - obj.last_modified > dur {
+                    continue;
                 }
-                if let Some(key) = obj.key().and_then(|key| key.strip_prefix(&prefix)) {
-                    let mut it = key.split('/');
-                    let Some(name) = it.next() else {
-                        continue;
-                    };
-                    let Some(version) = it.next() else {
-                        continue;
-                    };
-                    files.push(Crate {
-                        name: name.to_string(),
-                        version: Version::parse(version),
-                        status: Status::Unknown,
-                        recent_downloads: None,
-                    });
-                }
+            }
+            if let Some(key) = obj
+                .location
+                .as_ref()
+                .strip_prefix(prefix.as_ref())
+                .map(|location| location.trim_start_matches('/'))
+            {
+                let mut it = key.split('/');
+                let Some(name) = it.next() else {
+                    continue;
+                };
+                let Some(version) = it.next() else {
+                    continue;
+                };
+                files.push(Crate {
+                    name: name.to_string(),
+                    version: Version::parse(version),
+                    status: Status::Unknown,
+                    recent_downloads: None,
+                });
             }
         }
         Ok(files)
     }
 
     pub async fn list_rendered_crates(&self) -> Result<Vec<String>> {
-        let prefix = format!("{}/", self.tool.html_path());
-        let mut res = self
-            .inner
-            .list_objects_v2()
-            .bucket(&self.bucket)
-            .prefix(&prefix)
-            .into_paginator()
-            .send();
+        let prefix = Path::from(format!("{}/", self.tool.html_path()));
+        let mut res = self.inner.list(Some(&prefix));
         let mut files = Vec::new();
         while let Some(res) = res.next().await {
-            let page = res?;
-            for obj in page.contents().unwrap_or_default() {
-                if let Some(key) = obj.key().and_then(|key| key.strip_prefix(&prefix)) {
-                    files.push(key.to_string());
-                }
+            let obj = res?;
+            if let Some(key) = obj
+                .location
+                .as_ref()
+                .strip_prefix(prefix.as_ref())
+                .map(|key| key.trim_start_matches('/'))
+            {
+                files.push(key.to_string());
             }
         }
         Ok(files)
     }
 
     pub async fn upload_landing_page(&self, data: Vec<u8>) -> Result<()> {
-        self.upload(
-            self.tool.landing_page_path(),
-            &data,
-            "text/html;charset=utf-8",
-        )
-        .await
+        self.upload(self.tool.landing_page_path(), &data).await
     }
 
-    pub async fn list_db(&self) -> Result<Option<Object>> {
+    pub async fn list_db(&self) -> Result<Option<ObjectMeta>> {
         let res = retry(
-            move || {
-                self.inner
-                    .list_objects_v2()
-                    .bucket(&self.bucket)
-                    .prefix("crates.json")
-                    .max_keys(1)
-                    .send()
-            },
+            async move || self.inner.get(&Path::from("crates.json")).await,
             None,
         )
-        .await?;
-        let meta = res.contents.and_then(|c| c.first().cloned());
-        Ok(meta)
+        .await;
+        match res {
+            Ok(res) => Ok(Some(res.meta)),
+            Err(object_store::Error::NotFound { .. }) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 }
 

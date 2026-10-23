@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Args, Parser};
 use color_eyre::Result;
 use diagnose::diagnose;
 use std::{fmt, str::FromStr};
@@ -20,6 +20,15 @@ struct Cli {
 enum Commands {
     Run(run::Args),
     Sync(sync::Args),
+}
+
+#[derive(Args, Clone)]
+#[group(required = true, multiple = false)]
+struct Store {
+    #[clap(long)]
+    bucket: Option<String>,
+    #[clap(long)]
+    storage_dir: Option<String>,
 }
 
 fn main() -> Result<()> {

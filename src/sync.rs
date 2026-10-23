@@ -1,6 +1,6 @@
-use crate::Version;
 use crate::{client::Client, db_dump, render, Crate, Tool};
-use aws_smithy_types_convert::date_time::DateTimeExt;
+use crate::{Store, Version};
+use chrono::Utc;
 use clap::Parser;
 use color_eyre::{Report, Result};
 use std::collections::hash_map::Entry;
@@ -12,33 +12,29 @@ pub struct Args {
     #[clap(long)]
     tool: Tool,
 
-    #[clap(long)]
-    bucket: String,
+    #[clap(flatten)]
+    store: Store,
 }
 
 #[tokio::main]
 pub async fn run(args: Args) -> Result<()> {
-    let client = Arc::new(Client::new(args.tool, &args.bucket).await?);
+    let client = Arc::new(Client::new(args.tool, &args.store).await?);
 
     log::info!("Rendering fresh landing page");
     sync_landing_page(&client).await?;
 
     log::info!("Uploading the error page");
     client
-        .upload(
-            &format!("{}/403", args.tool),
-            ERROR_PAGE.as_bytes(),
-            "text/html",
-        )
+        .upload(&format!("{}/403", args.tool), ERROR_PAGE.as_bytes())
         .await?;
 
     let should_refresh_db = client
         .list_db()
         .await?
         .map(|db| {
-            let now = time::OffsetDateTime::now_utc();
-            let modified = db.last_modified.unwrap().to_time().unwrap();
-            (now - modified).whole_hours() > 24
+            let now = Utc::now();
+            let modified = db.last_modified;
+            (now - modified).num_hours() > 24
         })
         .unwrap_or(true);
 
@@ -53,12 +49,10 @@ pub async fn run(args: Args) -> Result<()> {
         }
 
         let serialized = serde_json::to_string(&versions).unwrap();
-        client
-            .upload("crates.json", serialized.as_bytes(), "application/json")
-            .await?;
+        client.upload("crates.json", serialized.as_bytes()).await?;
         let serialized = serde_json::to_string(&name_to_downloads).unwrap();
         client
-            .upload("downloads.json", serialized.as_bytes(), "application/json")
+            .upload("downloads.json", serialized.as_bytes())
             .await?;
         name_to_downloads
     } else {
@@ -84,11 +78,7 @@ pub async fn run(args: Args) -> Result<()> {
 
     let ub_page = crate::render::render_ub(&crates)?;
     client
-        .upload(
-            &format!("{}/ub", args.tool),
-            ub_page.as_bytes(),
-            "text/html",
-        )
+        .upload(&format!("{}/ub", args.tool), ub_page.as_bytes())
         .await?;
 
     Ok(())
@@ -178,11 +168,7 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
         .finish()
         .unwrap();
     client
-        .upload(
-            &format!("{}/raw.tar.xz", client.tool()),
-            &raw,
-            "application/octet-stream",
-        )
+        .upload(&format!("{}/raw.tar.xz", client.tool()), &raw)
         .await?;
 
     let rendered: Vec<u8> = Arc::into_inner(all_rendered)
@@ -193,11 +179,7 @@ async fn sync_all_html(client: Arc<Client>) -> Result<Vec<Crate>> {
         .finish()
         .unwrap();
     client
-        .upload(
-            &format!("{}/html.tar.xz", client.tool()),
-            &rendered,
-            "application/octet-stream",
-        )
+        .upload(&format!("{}/html.tar.xz", client.tool()), &rendered)
         .await?;
 
     Ok(crates)

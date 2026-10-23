@@ -51,7 +51,8 @@ This crate uses `clap`; run `cargo run -- --help` for CLI options.
 * Install docker (`sudo apt install docker.io`, `sudo pacman -S docker`, etc.)
 * Add yourself to docker group (`sudo adduser $USER docker`)
 * Re-login or `newgrp docker` to make your shell know about docker
-* `cargo run -- run --tool=miri --bucket=my-bucket-here`
+* `cargo run -- run --tool=miri --bucket=my-bucket-here` to store results in an Amazon S3 bucket
+* `cargo run -- run --tool=miri --storage-dir=my-dir` to store results in a local folder
 * Have lots of patience
 
 Contributions of or suggestions for more sophisticated data processing are welcome.
